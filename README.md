@@ -3,10 +3,10 @@ bitcurry is to be a simple specification-compliant bittorrent client.
 It is written in Haskell.
 
 # project initiation
-`cabal install virthualenv
-cd /path/to/bitcurry
-virthualenv
-source .virthualenv/bin/activate`
+`> cabal install virthualenv
+> cd /path/to/bitcurry
+> virthualenv
+> source .virthualenv/bin/activate`
 
 Follow these steps before you cabal install anything needed for the project.
 In this way dependency hell can be avoided...I think.
