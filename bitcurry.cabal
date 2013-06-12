@@ -1,0 +1,17 @@
+name:                bitcurry
+version:             0.0.1
+synopsis:            a simple haskell bittorrent client
+homepage:            https://github.com/nabilhassein/bitcurry
+license:             MIT
+license-file:        LICENSE.md
+author:              Nabil Hassein
+maintainer:          nabil.hassein@gmail.com
+category:            Network
+build-type:          Simple
+cabal-version:       >=1.8
+
+executable bitcurry
+  main-is:             tracker.hs
+  -- other-modules:       
+  build-depends:       base ==4.5.*
+                     , scotty
