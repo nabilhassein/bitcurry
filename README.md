@@ -13,11 +13,11 @@ In this way dependency hell can be avoided...I think.
 See http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html
 
 # Useful resources and references
-https://wiki.theory.org/BitTorrentSpecification
-http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
-http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-2/
-https://github.com/thomasballinger/bittorrent
-https://github.com/astro/haskell-torrent
+- https://wiki.theory.org/BitTorrentSpecification
+- http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
+- http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-2/
+- https://github.com/thomasballinger/bittorrent
+- https://github.com/astro/haskell-torrent
 
 # TODO
 Everything!
