@@ -7,8 +7,15 @@ cd /path/to/bitcurry
 virthualenv
 source .virthualenv/bin/activate
 
-# TODOs
-everything!
+# Useful resources and references
+https://wiki.theory.org/BitTorrentSpecification
+http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
+http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-2/
+https://github.com/thomasballinger/bittorrent
+https://github.com/astro/haskell-torrent
+
+# TODO
+everything
 
 ## Meta
-get virthualenv, haskell, and git all playing nicely
+get virthualenv, emacs's haskell-mode, and git all playing nicely
