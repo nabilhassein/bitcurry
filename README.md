@@ -28,12 +28,17 @@ This will give the project a virtual environment, avoiding dependency hell (I th
 
 ## workflow
 
-If you use Emacs or something similar, make sure you get virthualenv.el, and
+If you use Emacs, make sure you get [virthualenv.el](https://github.com/Paczesiowa/virthualenv/blob/master/virthualenv.el), and
 
     M-x virthualenv-activate
 
-or the equivalent every time you start hacking; if you forget,
-your inferior ghci (or whatever) will be unable to find packages
+every time you start working.
+(Or do the equivalent in your environment of choice; for example,
+if you're on the command-line, then repeat the incantation above, i.e.
+
+    source .virthualenv/bin/activate
+
+If you forget, your inferior ghci (or whatever) will be unable to find packages
 that were `cabal install`-ed in the local virtual environment,
 as ghci will instead search the normal environment.
 
