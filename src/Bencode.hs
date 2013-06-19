@@ -6,7 +6,7 @@ import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, word8, many', count, anyWord8)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import           Data.Char (ord)
-import           Data.Serialize (Serialize, encode)
+import           Data.Serialize (Serialize)
 import           Data.Word8 (Word8)
 import           GHC.Generics (Generic)
 import qualified Data.ByteString as BS
@@ -32,7 +32,7 @@ parseString = do
   n   <- decimal
   _   <- word8 $ charToWord8 ':'
   str <- count n anyWord8
-  return $ BString $ encode str
+  return $ BString $ BS.pack str
 
 parseInteger :: Parser Bencode
 parseInteger = do
@@ -51,7 +51,7 @@ parseList = do
 parseDictionary :: Parser Bencode
 parseDictionary = do
   _  <- word8 $ charToWord8 'd'
-  xs <- many' $ parseHash
+  xs <- many' parseHash
   _  <- word8 $ charToWord8 'e'
   return $ BDict $ Map.fromList xs
 
