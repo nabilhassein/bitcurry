@@ -2,47 +2,71 @@
 bitcurry is to be a simple specification-compliant bittorrent client.
 It is written in Haskell.
 
-# project initiation
+If this document fails to answer any questions you have about it,
+please let me know!
+
+# getting started
+
+## project initiation
+If you want to pitch in (all are welcome!), bring up a terminal and:
+
+    git clone git@github.com:nabilhassein/bitcurry.git
+    cd bitcurry
     cabal install virthualenv
-    cd /path/to/bitcurry
     virthualenv
+
+Follow the above steps the FIRST time you begin working on the project.
+
+Then, EVERY time before you do work such as editing code, or
+(especially!) `cabal install`-ing dependencies:
+
     source .virthualenv/bin/activate
 
-Follow these steps before you cabal install anything needed for the project.
-In this way dependency hell can be avoided...I think.
-See http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html
+This will give the project a virtual environment, avoiding dependency hell (I think).
 
-# Useful resources and references
+(See http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html)
+
+## workflow
+
+If you use Emacs or something similar, make sure you get virthualenv.el, and
+
+    M-x virthualenv-activate
+
+or the equivalent every time you start hacking; if you forget,
+your inferior ghci (or whatever) will be unable to find packages
+that were `cabal install`-ed in the local virtual environment,
+as ghci will instead search the normal environment.
+
+In terms of actually writing code: for now, I guess you should
+develop on a local branch and then send me a pull request.
+If you want to begin working on this project regularly, or even semi-regularly,
+I'll gladly give commit access! Just ask.
+
+### meta
+
+This isn't about bitcurry strictly, but if you have any ideas about better
+development practices, whether general or haskell-specific, please let me know!
+
+# useful resources and references
 - https://wiki.theory.org/BitTorrentSpecification
 - http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
 - http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-2/
-- http://hackage.haskell.org/package/attoparsec-0.10.4.0
 - https://github.com/thomasballinger/bittorrent
 - https://github.com/astro/haskell-torrent
 - http://www.haskell.org/pipermail/haskell-cafe/2005-April/009638.html
 
 # TODO
-Everything!
+So far, I've written a datatype for bencoding,
+with associated code for parsing and serialization.
 
-## Issues to revisit
+The next step I plan to tackle is [communicating with the tracker via HTTP](https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol).
 
-### Encoding -- ASCII vs. Unicode
+After that, we can begin working on implementing peer-to-peer communication,
+and actually downloading files.
+
+## possible issues to revisit
+
+### encoding -- ASCII vs. Unicode
 See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
 
 "The specification does not deal with encoding of characters outside the ASCII set"
-
-
-## Starting out
-The first link in the "resources" section above is the most important:
-it is a specification of the bittorrent protocol.
-The first thing I plan to do is write the tracker:
-https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
-
-According to that link, "The tracker is an HTTP/HTTPS service which responds to HTTP GET requests."
-I'm not exactly a pro web hacker but that seems like the easiest place to start.
-
-This is why the initial commit makes use of [Scotty](http://hackage.haskell.org/packages/archive/scotty/0.4.0/doc/html/Web-Scotty.html).
-
-
-## Meta
-get virthualenv, emacs's haskell-mode, and git all playing nicely
