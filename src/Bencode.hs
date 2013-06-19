@@ -6,6 +6,7 @@ import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, word8, many', count, anyWord8)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import           Data.Char (ord)
+import           Data.URLEncoded
 import           Data.Serialize (Serialize)
 import           Data.Word8 (Word8)
 import           GHC.Generics (Generic)
@@ -19,6 +20,7 @@ data Bencode = BString BS.ByteString
              | BDict (Map.Map Bencode Bencode)
              deriving (Show, Eq, Ord, Generic)
 instance Serialize Bencode
+instance URLEncode Bencode
 
 
 parseBencode :: Parser Bencode
