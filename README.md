@@ -57,6 +57,11 @@ This isn't about bitcurry strictly, but if you have any ideas about better
 development practices, whether general or haskell-specific, please let me know!
 
 # TODO
+See also the TODOs in the code.
+
+We need tests. Unfortunately, testing is not always straightforward.
+To be continued.
+
 So far, I've written a datatype for bencoding,
 with associated code for parsing and serialization.
 
