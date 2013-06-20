@@ -5,12 +5,12 @@ module Bencode where
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
-import           Data.ByteString.Char8 (pack)
-import qualified Data.ByteString as BS
-import qualified Data.Map        as Map
+import           Data.ByteString.Lazy.Char8 (pack)
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map             as Map
 
 -- see https://wiki.theory.org/BitTorrentSpecification#Bencoding
-data Bencode = BString BS.ByteString
+data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
              | BDict (Map.Map Bencode Bencode)
@@ -18,17 +18,18 @@ data Bencode = BString BS.ByteString
 
 
 -- TODO: write some tests!
-serialize :: Bencode -> BS.ByteString
-serialize (BString str) = let n = pack . show $ BS.length str
-                          in  n `BS.append` ":" `BS.append` str
-serialize (BInt n)      = "i" `BS.append` pack (show n) `BS.append` "e"
-serialize (BList xs)    = "l" `BS.append` foldr BS.append "e" (map serialize xs)
-serialize (BDict dict)  = "d" `BS.append` helper (BDict dict) `BS.append` "e"
+serialize :: Bencode -> BL.ByteString
+serialize (BString s) = let n = pack . show $ BL.length s
+                        in  n `BL.append` ":" `BL.append` s
+serialize (BInt n)     = "i" `BL.append` pack (show n) `BL.append` "e"
+serialize (BList l)    = "l" `BL.append` foldr (BL.append . serialize) "e" l
+serialize (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
                                 []        -> ""
-                                (k, v):xs -> serialize k `BS.append`
-                                             serialize v `BS.append`
+                                (k, v):xs -> serialize k `BL.append`
+                                             serialize v `BL.append`
                                              helper (BDict $ Map.fromList xs)
+        helper _            = ""
 
 
 parseBencode :: Parser Bencode
@@ -39,7 +40,7 @@ parseString = do
   n   <- decimal
   _   <- string ":"
   str <- count n anyWord8
-  return $ BString $ BS.pack str
+  return $ BString $ BL.pack str
 
 parseInteger :: Parser Bencode
 parseInteger = do
