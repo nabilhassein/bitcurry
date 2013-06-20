@@ -9,7 +9,6 @@ import           Data.ByteString.Char8 (pack)
 import qualified Data.ByteString as BS
 import qualified Data.Map        as Map
 
-
 -- see https://wiki.theory.org/BitTorrentSpecification#Bencoding
 data Bencode = BString BS.ByteString
              | BInt Integer
@@ -19,17 +18,16 @@ data Bencode = BString BS.ByteString
 
 
 -- TODO: write some tests!
-bencode :: Bencode -> BS.ByteString
-bencode (BString str) = let n = pack . show $ BS.length str
-                        in  n `BS.append` ":" `BS.append` str
-bencode (BInt n)      = "i" `BS.append` pack (show n) `BS.append` "e"
-bencode (BList xs)    = "l" `BS.append` foldr BS.append "e" (map bencode xs)
-bencode (BDict dict)  = "d" `BS.append` helper (BDict dict) `BS.append` "e"
-  where helper (BDict hash) = let list = Map.toList hash
-                              in case list of
+serialize :: Bencode -> BS.ByteString
+serialize (BString str) = let n = pack . show $ BS.length str
+                          in  n `BS.append` ":" `BS.append` str
+serialize (BInt n)      = "i" `BS.append` pack (show n) `BS.append` "e"
+serialize (BList xs)    = "l" `BS.append` foldr BS.append "e" (map serialize xs)
+serialize (BDict dict)  = "d" `BS.append` helper (BDict dict) `BS.append` "e"
+  where helper (BDict hash) = case Map.toList hash of
                                 []        -> ""
-                                (k, v):xs -> bencode k `BS.append`
-                                             bencode v `BS.append`
+                                (k, v):xs -> serialize k `BS.append`
+                                             serialize v `BS.append`
                                              helper (BDict $ Map.fromList xs)
 
 
