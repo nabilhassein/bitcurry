@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Bencode where
+module Bencode (Bencode(..), parseBencode, serialize) where
 
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
@@ -16,8 +16,8 @@ data Bencode = BString BL.ByteString
              | BDict (Map.Map Bencode Bencode)
              deriving (Show, Eq, Ord)
 
-
 -- TODO: write some tests!
+-- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 serialize :: Bencode -> BL.ByteString
 serialize (BString s) = let n = pack . show $ BL.length s
                         in  n `BL.append` ":" `BL.append` s
@@ -29,9 +29,9 @@ serialize (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
                                 (k, v):xs -> serialize k `BL.append`
                                              serialize v `BL.append`
                                              helper (BDict $ Map.fromList xs)
-        helper _            = ""
 
 
+-- TODO: make something like this the "decode" method of Data.Serialize?
 parseBencode :: Parser Bencode
 parseBencode = parseString <|> parseInteger <|> parseList <|> parseDictionary
 
