@@ -18,5 +18,3 @@ executable bitcurry
                      , cereal
                      , http
                      , sha
-                     , urlencoded
-                     , word8
