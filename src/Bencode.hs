@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Bencode (Bencode(..), parseBencode, serialize) where
+module Bencode (Bencode(..), parseBencode, antiParse) where
 
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
@@ -17,17 +17,17 @@ data Bencode = BString BL.ByteString
              deriving (Show, Eq, Ord)
 
 -- TODO: write some tests!
--- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
-serialize :: Bencode -> BL.ByteString
-serialize (BString s) = let n = pack . show $ BL.length s
+-- TODO: make this the "encode" method of Data.AntiParse? (also need Generics)
+antiParse :: Bencode -> BL.ByteString
+antiParse (BString s) = let n = pack . show $ BL.length s
                         in  n `BL.append` ":" `BL.append` s
-serialize (BInt n)     = "i" `BL.append` pack (show n) `BL.append` "e"
-serialize (BList l)    = "l" `BL.append` foldr (BL.append . serialize) "e" l
-serialize (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
+antiParse (BInt n)     = "i" `BL.append` pack (show n) `BL.append` "e"
+antiParse (BList l)    = "l" `BL.append` foldr (BL.append . antiParse) "e" l
+antiParse (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
                                 []        -> ""
-                                (k, v):xs -> serialize k `BL.append`
-                                             serialize v `BL.append`
+                                (k, v):xs -> antiParse k `BL.append`
+                                             antiParse v `BL.append`
                                              helper (BDict $ Map.fromList xs)
 
 
