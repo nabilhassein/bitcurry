@@ -9,20 +9,30 @@ import           Data.Digest.Pure.SHA (sha1, showDigest)
 import           Data.Maybe (fromJust)
 import           Network.HTTP (getRequest, getResponseBody, simpleHTTP)
 import           Network.HTTP.Base (urlEncode, urlEncodeVars)
---import           System.Posix.Env.ByteString (getArgs)
+import           System.Exit (exitFailure)
+-- import           System.Posix.Env.ByteString (getArgs)
 import           System.Random (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 
--- temporary testing
--- TODO: write some real tests
+-- TODO: write some real tests instead of this hacky main
 main :: IO ()
 main = do
-  contents <- BL.readFile "../tests/test.torrent"
-  let (Done _ hash) = parse parseBencode contents
-      url           = constructURL (mkStdGen 42) hash
+  let file = "/home/nabil/Desktop/10Day.torrent"
+  contents <- BL.readFile file
+  -- for a torrent file correctly encoded as described in the specification,
+  -- `parse parseBencode contents` should always result in Done;
+  -- but if the torrent file is incorrectly encoded, this code will error
+  -- TODO: make the program handle this case gracefully
+  let (Done remainder hash) = parse parseBencode contents
+      url                   = constructURL (mkStdGen 42) hash
+  case remainder of
+    "" -> putStrLn ("CONTINUING; consumed all of torrent file " ++ file)
+    _  -> putStrLn ("ABORTING; could not consume all of torrent file " ++ file)
+          >> exitFailure
   putStrLn $ "making GET request to:\n" ++ url
   response <- simpleHTTP $ getRequest url
+  putStrLn "the response from the server is:\n"
   body <- getResponseBody response
   print body
 
@@ -78,6 +88,8 @@ event = ("event", "started")
 
 -- construct url to use in GET request to tracker
 -- TODO: change seed in peer_id in light of TODO above
+-- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
+-- it is possible to cause an exception rather than gracefully handle an error
 constructURL :: StdGen -> Bencode -> String
 constructURL seed hash =
   let strip   = drop 1 . dropWhile (/= ':') -- for bencoded strings
