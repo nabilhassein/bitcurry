@@ -29,6 +29,9 @@ See also the TODOs in the code. (Meta: do TODOs belong in code?)
 
 It would be a nice feature if bitcurry offered a way of creating torrents
 that is convenient to the end user, with a command-line interface.
+Doing it manually is tedious and error-prone.
+Also, in terms of homemade-test.torrent -- may want to add optional params,
+namely multiple file support, md5sum, private tracker support
 
 We need tests. Unfortunately, testing is not always straightforward.
 However, it is a top priority to write good tests for:
