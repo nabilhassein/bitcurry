@@ -27,12 +27,7 @@ See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
 # TODOs
 See also the TODOs in the code. (Meta: do TODOs belong in code?)
 
-It would be a nice feature if bitcurry offered a way of creating torrents
-that is convenient to the end user, with a command-line interface.
-Doing it manually is tedious and error-prone.
-Also, in terms of homemade-test.torrent -- may want to add optional params,
-namely multiple file support, md5sum, private tracker support
-
+## testing
 We need tests. Unfortunately, testing is not always straightforward.
 However, it is a top priority to write good tests for:
 
@@ -49,6 +44,18 @@ and apparently effective; they seem to work as specified.
 However, it is not so simple to test the client-tracker interaction in this way.
 
 So it's about time to get started with QuickCheck, HUnit, etc.
+
+## future features
+
+### bittorrent enhancement proposals
+BEP 15 is a particular priority: implementing ability to communicate with
+trackers over UDP. Useful services like openbittorrent use this.
+
+### creating torrent files
+It would be a nice feature if bitcurry offered a way of creating torrents
+that is convenient to the end user, with a command-line interface.
+Doing it manually is tedious and error-prone.
+
 
 # getting started hacking bitcurry
 ## project initiation
