@@ -18,14 +18,15 @@ import qualified Data.Map             as Map
 -- TODO: write some real tests instead of this hacky main
 main :: IO ()
 main = do
-  let file = "/home/nabil/Desktop/10Day.torrent"
+  let file = "/home/nabil/Desktop/archlinux.torrent"
+      seed = mkStdGen 42
   contents <- BL.readFile file
   -- for a torrent file correctly encoded as described in the specification,
   -- `parse parseBencode contents` should always result in Done;
   -- but if the torrent file is incorrectly encoded, this code will error
   -- TODO: make the program handle this case gracefully
   let (Done remainder hash) = parse parseBencode contents
-      url                   = constructURL (mkStdGen 42) hash
+      url                   = constructURL seed hash
   case remainder of
     "" -> putStrLn ("CONTINUING; consumed all of torrent file " ++ file)
     _  -> putStrLn ("ABORTING; could not consume all of torrent file " ++ file)
@@ -33,18 +34,21 @@ main = do
   putStrLn $ "making GET request to:\n" ++ url
   response <- simpleHTTP $ getRequest url
   putStrLn "the response from the server is:\n"
-  body <- getResponseBody response
-  print body
+  getResponseBody response >>= print
 
 -- helper functions
 getValue :: BL.ByteString -> Bencode -> Maybe Bencode
 getValue key (BDict hash) = Map.lookup (BString key) hash
 getValue _   _            = Nothing -- should this error? maybe change the type?
 
+-- TODO: write lots of tests!
 -- parameters for GET request to tracker
 -- https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
--- TODO: write some tests
 
+-- should this be %-encoded? see Paolo's url from private Humbug message
+-- see also:
+-- http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
+-- ‘info_hash’ which you compute as a hash of the bencoded info dictionary ...
 info_hash :: Bencode -> (String, String)
 info_hash hash =
   let value = showDigest . sha1 . antiParse . fromJust $ getValue "info" hash
@@ -101,4 +105,5 @@ constructURL seed hash =
                                       , downloaded
                                       , left
                                       , compact
-                                      , event]
+                                      , event
+                                      ]

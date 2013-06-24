@@ -14,7 +14,7 @@ data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
              | BDict (Map.Map Bencode Bencode)
-               -- can we restrict the keys to be BStrings, as in the spec?
+               -- can we restrict the keys to have type BString, as in the spec?
              deriving (Show, Eq, Ord)
 
 -- TODO: write some tests!
@@ -56,6 +56,10 @@ parseList = do
   _  <- string "e"
   return $ BList xs
 
+-- make sure this preserves order of dictionary; from the spec:
+-- Keys must be strings and appear in sorted order -- (sorted as raw strings,
+-- not alphanumerics). The strings should be compared
+-- using a binary comparison, not a culture-specific "natural" comparison.
 parseDictionary :: Parser Bencode
 parseDictionary = do
   _  <- string "d"
