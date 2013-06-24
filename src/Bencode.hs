@@ -14,14 +14,14 @@ data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
              | BDict (Map.Map Bencode Bencode)
+               -- can we restrict the keys to be BStrings, as in the spec?
              deriving (Show, Eq, Ord)
 
 -- TODO: write some tests!
--- TODO: make this the "encode" method of Data.AntiParse? (also need Generics)
+-- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 antiParse :: Bencode -> BL.ByteString
-antiParse (BString s) = let n = pack . show $ BL.length s
-                        in  n `BL.append` ":" `BL.append` s
-antiParse (BInt n)     = "i" `BL.append` pack (show n) `BL.append` "e"
+antiParse (BString s)  = pack (show $ BL.length s) `BL.append` ":" `BL.append` s
+antiParse (BInt i)     = "i" `BL.append` pack (show i) `BL.append` "e"
 antiParse (BList l)    = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of

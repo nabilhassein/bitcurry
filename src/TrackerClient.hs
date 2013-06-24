@@ -2,7 +2,7 @@
 
 module TrackerClient where
 
-import           Bencode
+import           Bencode (Bencode(..), antiParse, parseBencode)
 import           Data.Attoparsec.Lazy (Result(..), parse)
 import           Data.ByteString.Lazy.Char8 (unpack)
 import           Data.Digest.Pure.SHA (sha1, showDigest)
