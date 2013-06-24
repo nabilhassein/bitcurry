@@ -27,6 +27,9 @@ See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
 # TODOs
 See also the TODOs in the code. (Meta: do TODOs belong in code?)
 
+It would be a nice feature if bitcurry offered a way of creating torrents
+that is convenient to the end user, with a command-line interface.
+
 We need tests. Unfortunately, testing is not always straightforward.
 However, it is a top priority to write good tests for:
 
