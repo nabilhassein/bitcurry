@@ -8,9 +8,8 @@ import           Data.ByteString.Lazy.Char8 (unpack)
 import           Data.Digest.Pure.SHA (sha1, showDigest)
 import           Data.Maybe (fromJust)
 import           Network.HTTP (getRequest, getResponseBody, simpleHTTP)
-import           Network.HTTP.Base (urlEncode, urlEncodeVars)
+import           Network.HTTP.Base (urlEncodeVars)
 import           System.Exit (exitFailure)
--- import           System.Posix.Env.ByteString (getArgs)
 import           System.Random (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
@@ -18,7 +17,7 @@ import qualified Data.Map             as Map
 -- TODO: write some real tests instead of this hacky main
 main :: IO ()
 main = do
-  let file = "/home/nabil/Desktop/archlinux.torrent"
+  let file = "/home/nabil/Dropbox/repos/bitcurry/test/archlinux.torrent"
       seed = mkStdGen 42
   contents <- BL.readFile file
   -- for a torrent file correctly encoded as described in the specification,
@@ -36,28 +35,27 @@ main = do
   putStrLn "the response from the server is:\n"
   getResponseBody response >>= print
 
--- helper functions
-getValue :: BL.ByteString -> Bencode -> Maybe Bencode
-getValue key (BDict hash) = Map.lookup (BString key) hash
-getValue _   _            = Nothing -- should this error? maybe change the type?
+-- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
+-- it is possible to cause an exception rather than gracefully handle an error
+getValue :: BL.ByteString -> Bencode -> Bencode
+getValue key (BDict hash) = fromJust $ Map.lookup (BString key) hash
+getValue _   _            = error "getValue: hash param is not a BDict"
 
--- TODO: write lots of tests!
 -- parameters for GET request to tracker
 -- https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
 
--- should this be %-encoded? see Paolo's url from private Humbug message
--- see also:
--- http://www.kristenwidman.com/blog/how-to-write-a-bittorrent-client-part-1/
--- ‘info_hash’ which you compute as a hash of the bencoded info dictionary ...
 info_hash :: Bencode -> (String, String)
 info_hash hash =
-  let value = showDigest . sha1 . antiParse . fromJust $ getValue "info" hash
-  in ("info_hash", urlEncode value)
+  let value = showDigest . sha1 . antiParse $ getValue "info" hash
+      -- only called on 20-byte SHA1 hashes, so odd case never happens
+      -- TODO: make this less appallingly hacky
+      encodePercents ""        = ""
+      encodePercents (a:b:str) = '%' : a : b : encodePercents str
+  in ("info_hash", encodePercents value)
 
--- from the specification linked above:
--- "[the peer id] must at least be unique for your local machine,
--- thus should probably incorporate things like process ID
--- and perhaps a timestamp recorded at startup"
+-- from the specification linked above: "[the peer id] must at least be unique
+-- for your local machine, thus should probably incorporate things like
+-- process ID and perhaps a timestamp recorded at startup"
 -- TODO: change seed generation to incorporate advice of above quote
 peer_id :: StdGen -> (String, String)
 peer_id seed = ("peer_id", "-HS0001-" ++ twelveRandomDigits)
@@ -89,21 +87,19 @@ event = ("event", "started")
 
 -- TODO: include ip, num_want, key, trackerid (optional; temporarily omitted)
 
-
 -- construct url to use in GET request to tracker
--- TODO: change seed in peer_id in light of TODO above
--- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
--- it is possible to cause an exception rather than gracefully handle an error
+-- TODO: handle info_hash in standard manner instead of as a hacky special case
 constructURL :: StdGen -> Bencode -> String
 constructURL seed hash =
   let strip   = drop 1 . dropWhile (/= ':') -- for bencoded strings
-      baseURL = strip . unpack . antiParse . fromJust $ getValue "announce" hash
-  in  baseURL ++ "?" ++ urlEncodeVars [ info_hash hash
-                                      , peer_id seed
-                                      , port
-                                      , uploaded
-                                      , downloaded
-                                      , left
-                                      , compact
-                                      , event
-                                      ]
+      baseURL = strip . unpack . antiParse $ getValue "announce" hash
+      infoHash = fst (info_hash hash) ++ "=" ++ snd (info_hash hash)
+  in  baseURL ++ "?" ++ infoHash ++ "&" ++
+      urlEncodeVars [ peer_id seed
+                    , port
+                    , uploaded
+                    , downloaded
+                    , left
+                    , compact
+                    , event
+                    ]
