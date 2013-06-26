@@ -17,7 +17,7 @@ import qualified Data.Map             as Map
 -- TODO: write some real tests instead of this hacky main
 main :: IO ()
 main = do
-  let file = "/home/nabil/Dropbox/repos/bitcurry/test/archlinux.torrent"
+  let file = "../test/archlinux.torrent"
       seed = mkStdGen 42
   contents <- BL.readFile file
   -- for a torrent file correctly encoded as described in the specification,
@@ -32,7 +32,7 @@ main = do
           >> exitFailure
   putStrLn $ "making GET request to:\n" ++ url
   response <- simpleHTTP $ getRequest url
-  putStrLn "the response from the server is:\n"
+  putStrLn "the response from the server is:"
   getResponseBody response >>= print
 
 -- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
