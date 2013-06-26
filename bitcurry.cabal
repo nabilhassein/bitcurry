@@ -1,20 +1,38 @@
-name:                bitcurry
-version:             0.0.1
-synopsis:            a simple haskell bittorrent client
-homepage:            https://github.com/nabilhassein/bitcurry
-license:             MIT
-license-file:        LICENSE.md
-author:              Nabil Hassein
-maintainer:          nabil.hassein@gmail.com
-category:            Network
-build-type:          Simple
-cabal-version:       >=1.8
+name:          bitcurry
+version:       0.0.1
+synopsis:      a simple command-line bittorrent client
+homepage:      https://github.com/nabilhassein/bitcurry
+license:       MIT
+license-file:  LICENSE.md
+author:        Nabil Hassein
+maintainer:    nabil.hassein@gmail.com
+category:      Network
+build-type:    Simple
+cabal-version: >=1.8
+
 
 executable bitcurry
-  main-is:             Metainfo.hs
-  -- other-modules:       
-  build-depends:       base ==4.5.*
-                     , attoparsec
-                     , cereal
-                     , http
-                     , sha
+    main-is:        TrackerClient.hs
+    hs-source-dirs: src
+    ghc-options:   -Wall
+    build-depends: base
+             , attoparsec
+             , bytestring
+             , containers
+             , HTTP
+             , random
+             , SHA
+             
+
+Test-Suite bitcurry-test
+    type:           exitcode-stdio-1.0
+    main-is:        Test.hs
+    hs-source-dirs: src
+                  , test
+                  
+    build-depends: base
+             , attoparsec
+             , bytestring
+             , containers
+             , QuickCheck
+

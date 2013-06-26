@@ -7,13 +7,13 @@ please let me know!
 
 # progress
 So far, I've written a datatype for bencoding (src/Bencode.hs)
-with associated code for parsing and inverse-parsing.
+with associated code for parsing and anti-parsing.
 
 I've also written a draft of the module (src/TrackerClient.hs)
-that sends a GET request to the tracker.
+that sends a GET request to the tracker. This works as intended.
 
-After that is complete and correct, we can begin implementing
-peer-to-peer communication, and actually downloading files.
+After tests are in place, we can begin implementing peer-to-peer communication,
+and actually downloading files.
 
 ## possible issues to revisit
 ### lazy versus strict ByteStrings
@@ -24,7 +24,14 @@ See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
 
 "specification does not deal with encoding of characters outside the ASCII set"
 
+### percent encoding
+The implementation of the info_hash param in the GET request to the tracker
+in src/TrackerClient.hs is currently an awful hack. This must be improved.
+
 # TODOs
+
+Figure out modules: do we want this to be a library?
+
 See also the TODOs in the code. (Meta: do TODOs belong in code?)
 
 ## testing
@@ -76,9 +83,23 @@ Then, EVERY time before you do work such as editing code, or
 
     source .virthualenv/bin/activate
 
-This will give the project a virtual environment, avoiding dependency hell (I think).
+This will give the project a virtual environment, avoiding dependency hell (?).
 
 (See http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html)
+
+## directory annoyances
+
+Be sure to stay inside of the `bitcurry` directory. If you `cd` into `src`,
+ `test`, etc. you will get irritating errors about "Could not find module Foo"
+
+## building and testing
+
+    source .virthualenv/bin/activate
+    cabal configure --enable-tests && cabal build && cabal test
+
+If all is right with the world, this will build and test the package.
+
+*PLEASE let me know if this does not work for you.*
 
 ## workflow
 
@@ -96,9 +117,6 @@ if you're on the command-line, then repeat the incantation above, i.e.
 If you forget, your inferior ghci (or whatever) will be unable to find packages
 that were `cabal install`-ed in the local virtual environment,
 as ghci will instead search the normal environment.
-
-Also, be sure to `:set -XOverloadedStrings` in your `.ghci`, `init.el`, etc.
-Unfortunately ghci doesn't appear to respect language pragmas in files it loads.
 
 If you have any questions -- or advice! -- about good practices and/or
 setting up a productive development environment, please share!
