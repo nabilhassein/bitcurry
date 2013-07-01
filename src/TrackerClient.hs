@@ -17,7 +17,7 @@ import qualified Data.Map             as Map
 -- TODO: write some real tests instead of this hacky main
 main :: IO ()
 main = do
-  let file = "../test/archlinux.torrent"
+  let file = "test/archlinux.torrent"
       seed = mkStdGen 42
   contents <- BL.readFile file
   -- for a torrent file correctly encoded as described in the specification,

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Test where
 
 import           Bencode
 import           System.Exit (exitFailure)

@@ -20,10 +20,10 @@ data Bencode = BString BL.ByteString
 -- TODO: write some tests!
 -- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 antiParse :: Bencode -> BL.ByteString
-antiParse (BString s)  = pack (show $ BL.length s) `BL.append` ":" `BL.append` s
-antiParse (BInt i)     = "i" `BL.append` pack (show i) `BL.append` "e"
-antiParse (BList l)    = "l" `BL.append` foldr (BL.append . antiParse) "e" l
-antiParse (BDict d)    = "d" `BL.append` helper (BDict d) `BL.append` "e"
+antiParse (BString s) = pack (show $ BL.length s) `BL.append` ":" `BL.append` s
+antiParse (BInt i)    = "i" `BL.append` pack (show i) `BL.append` "e"
+antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
+antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
                                 []        -> ""
                                 (k, v):xs -> antiParse k `BL.append`
