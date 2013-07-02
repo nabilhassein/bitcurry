@@ -42,6 +42,7 @@ parseString = do
   str <- count n anyWord8
   return $ BString $ BL.pack str
 
+ -- TODO: reject leading zeroes, and accept only a leading - (not +)
 parseInteger :: Parser Bencode
 parseInteger = do
   _ <- string "i"
