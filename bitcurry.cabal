@@ -7,7 +7,7 @@ synopsis:            a simple command-line bittorrent client
 -- description:         
 homepage:            github.com/nabilhassein/bitcurry
 license:             MIT
-license-file:        LICENSE.md
+license-file:        LICENSE
 author:              Nabil Hassein
 maintainer:          nabil.hassein@gmail.com
 -- copyright:           
