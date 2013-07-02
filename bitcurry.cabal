@@ -21,3 +21,5 @@ library
                      , random ==1.0.*
                      , SHA ==1.6.*
   hs-source-dirs:      src
+  ghc-options:         -Wall
+
