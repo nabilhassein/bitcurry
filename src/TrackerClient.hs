@@ -49,6 +49,7 @@ info_hash hash =
   let value = showDigest . sha1 . antiParse $ getValue "info" hash
       -- only called on 20-byte SHA1 hashes, so odd case never happens
       -- TODO: make this less appallingly hacky
+      -- check sha1 library for a better way to encodepercents -- binary instead of hex
       encodePercents ""        = ""
       encodePercents (a:b:str) = '%' : a : b : encodePercents str
   in ("info_hash", encodePercents value)
