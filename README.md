@@ -61,7 +61,7 @@ trackers over UDP. Useful services like openbittorrent use this.
 ### creating torrent files
 It would be a nice feature if bitcurry offered a way of creating torrents
 that is convenient to the end user, with a command-line interface.
-Doing it manually is tedious and error-prone.
+Doing it manually is tedious, error-prone, and obviously the wrong thing.
 
 
 # getting started hacking bitcurry
@@ -90,7 +90,14 @@ This will give the project a virtual environment, avoiding dependency hell (?).
 ## directory annoyances
 
 Be sure to stay inside of the `bitcurry` directory. If you `cd` into `src`,
- `test`, etc. you will get irritating errors about "Could not find module Foo"
+ `test`, etc. you may encounter irritating errors like:
+
+    "Could not find module Bencode"
+
+due to the mundane details of ghc's (and ghci's) resolution of `import`s.
+
+I've tried to hack around this, not only in `bitcurry.cabal` but also in the
+project's local `.ghci`, to apparent success. Let me know if you have trouble.
 
 ## building and testing
 
