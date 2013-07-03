@@ -5,9 +5,9 @@ module Bencode (Bencode(..), parseBencode, antiParse) where
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
-import           Data.ByteString.Lazy.Char8 (pack) -- Debug.lhs >>= remove this
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
+import qualified Text.Show.ByteString as TSB
 
 
 -- see https://wiki.theory.org/BitTorrentSpecification#Bencoding
@@ -21,23 +21,10 @@ data Bencode = BString BL.ByteString
                -- can we restrict the keys to have type BString, as in the spec?
              deriving (Show, Eq, Ord)
 
--- TODO: write some tests!
 -- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 antiParse :: Bencode -> BL.ByteString
--- I want my code to look like this but it doesn't quite work:
--- antiParse (BString s) = (BL.singleton . fromIntegral $ BL.length s)
---                         `BL.append` ":"
---                         `BL.append` s
--- antiParse (BInt i)    = "i"
---                         `BL.append` BL.singleton (fromIntegral i)
---                         `BL.append` "e"
-
-antiParse (BString s) = pack (show $ BL.length s)
-                       `BL.append` ":"
-                       `BL.append` s
-antiParse (BInt i) = "i"
-                     `BL.append` pack (show i)
-                     `BL.append` "e"
+antiParse (BString s) = TSB.show (BL.length s) `BL.append` ":" `BL.append` s
+antiParse (BInt i)    = "i" `BL.append` TSB.show i `BL.append` "e"
 antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
