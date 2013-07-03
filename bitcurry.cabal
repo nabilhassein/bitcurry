@@ -15,7 +15,7 @@ library
   build-depends:       base ==4.5.*
                      , attoparsec ==0.10.*
                      , bytestring ==0.9.*
-                     , bytestring-show
+                     , bytestring-show == 0.3.*
                      , containers ==0.4.*
                      , HTTP ==4000.2.*
                      , QuickCheck ==2.6.*
