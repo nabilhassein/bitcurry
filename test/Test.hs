@@ -7,7 +7,6 @@ import           Control.Monad (replicateM)
 import           Test.QuickCheck
 import           Data.Attoparsec.Lazy (Result(..), parse)
 import           Data.ByteString.Lazy.Char8 (pack)
-import           Data.Word8 (Word8)
 import qualified Data.ByteString.Lazy as BL
 
 
@@ -15,12 +14,19 @@ main :: IO ()
 main = quickCheck prop_bytestring_inverse
 
 
--- TODO: can we enforce that arbitrary only takes ASCII characters?
+-- commented out code is what I want, but it doesn't quite work. see Debug.lhs
+
+-- TODO: can we enforce that arbitrary (in the line defining nchars)
+--       only takes ASCII characters?
 instance Arbitrary BL.ByteString where
   arbitrary = do
     n      <- choose (1, 1000 :: Int)
-    nchars <- replicateM n arbitrary -- nchars :: String
-    return $ (pack $ show n) `BL.append` ":" `BL.append` (pack nchars)
+    -- nchars <- replicateM n arbitrary -- nchars :: [Char]
+    nbytes <- replicateM n arbitrary -- nchars :: [GHC.Word.Word8]
+    -- return $ (BL.singleton $ fromIntegral n) `BL.append`
+    return $ (pack $ show n) `BL.append`
+      ":" `BL.append`
+      (BL.pack nbytes)
 
 -- tests to write: actual unit tests for parseBencode and antiParse
 

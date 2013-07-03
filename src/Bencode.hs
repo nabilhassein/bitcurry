@@ -5,11 +5,15 @@ module Bencode (Bencode(..), parseBencode, antiParse) where
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
-import           Data.ByteString.Lazy.Char8 (pack)
+import           Data.ByteString.Lazy.Char8 (pack) -- Debug.lhs >>= remove this
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 
+
 -- see https://wiki.theory.org/BitTorrentSpecification#Bencoding
+
+-- TODO: should Bencode's BString perhaps simply hold an Integer
+-- along with the ByteString? Would this be more efficient or convenient?
 data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
@@ -20,8 +24,20 @@ data Bencode = BString BL.ByteString
 -- TODO: write some tests!
 -- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 antiParse :: Bencode -> BL.ByteString
-antiParse (BString s) = pack (show $ BL.length s) `BL.append` ":" `BL.append` s
-antiParse (BInt i)    = "i" `BL.append` pack (show i) `BL.append` "e"
+-- I want my code to look like this but it doesn't quite work:
+-- antiParse (BString s) = (BL.singleton . fromIntegral $ BL.length s)
+--                         `BL.append` ":"
+--                         `BL.append` s
+-- antiParse (BInt i)    = "i"
+--                         `BL.append` BL.singleton (fromIntegral i)
+--                         `BL.append` "e"
+
+antiParse (BString s) = pack (show $ BL.length s)
+                       `BL.append` ":"
+                       `BL.append` s
+antiParse (BInt i) = "i"
+                     `BL.append` pack (show i)
+                     `BL.append` "e"
 antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
