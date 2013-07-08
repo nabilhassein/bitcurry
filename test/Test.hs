@@ -20,7 +20,7 @@ main = quickCheck prop_bytestring_inverse
 instance Arbitrary BL.ByteString where
   arbitrary = do
     n      <- choose (1, 1000 :: Int)
-    nbytes <- replicateM n arbitrary -- nchars :: [GHC.Word.Word8]
+    nbytes <- replicateM n arbitrary -- nbytes :: [GHC.Word.Word8]
     return $ TSB.show n `BL.append` ":" `BL.append` BL.pack nbytes
 
 -- tests to write: actual unit tests for parseBencode and antiParse
