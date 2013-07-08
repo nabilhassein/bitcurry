@@ -5,23 +5,17 @@ module Bencode (Bencode(..), parseBencode, antiParse) where
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
+import           Data.ByteString.Lazy.Char8 () -- instance IsString ByteString
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 import qualified Text.Show.ByteString as TSB
 
-
--- see https://wiki.theory.org/BitTorrentSpecification#Bencoding
-
--- TODO: should Bencode's BString perhaps simply hold an Integer
--- along with the ByteString? Would this be more efficient or convenient?
 data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
-             | BDict (Map.Map Bencode Bencode)
-               -- can we restrict the keys to have type BString, as in the spec?
+             | BDict (Map.Map BL.ByteString Bencode)
              deriving (Show, Eq, Ord)
 
--- TODO: make this the "encode" method of Data.Serialize? (also need Generics)
 antiParse :: Bencode -> BL.ByteString
 antiParse (BString s) = TSB.show (BL.length s) `BL.append` ":" `BL.append` s
 antiParse (BInt i)    = "i" `BL.append` TSB.show i `BL.append` "e"
@@ -29,12 +23,10 @@ antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
                                 []        -> ""
-                                (k, v):xs -> antiParse k `BL.append`
-                                             antiParse v `BL.append`
+                                (k, v):xs -> antiParse (BString k) `BL.append`
+                                             antiParse v           `BL.append`
                                              helper (BDict $ Map.fromList xs)
 
-
--- TODO: make something like this the "decode" method of Data.Serialize?
 parseBencode :: Parser Bencode
 parseBencode = parseString <|> parseInteger <|> parseList <|> parseDictionary
 
@@ -71,8 +63,8 @@ parseDictionary = do
   _  <- string "e"
   return $ BDict $ Map.fromList xs
 
-parseHash :: Parser (Bencode, Bencode)
+parseHash :: Parser (BL.ByteString, Bencode)
 parseHash = do
-  key <- parseString
-  val <- parseBencode
+  BString key <- parseString
+  val         <- parseBencode
   return (key, val)

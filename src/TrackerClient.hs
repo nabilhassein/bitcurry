@@ -17,6 +17,7 @@ import           System.Random (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 
+
 main :: IO [(IPv4, PortID)]
 main = do
   let file = "test/archlinux.torrent"
@@ -37,11 +38,11 @@ makeTrackerRequest seed file = do
   let Done "" answer = parse parseBencode $ pack response
   return answer
 
--- from spec: "the peers value may be a string consisting of multiples of
--- 6 bytes. First 4 bytes are the IP address and last 2 bytes are the port
--- number. All in network (big endian) notation"
--- TODO: deal with DNS, IPv6, other way to encode peers (list of dicts)
-getPeers :: Map.Map Bencode Bencode -> [(IPv4, PortID)]
+-- from the spec: "the peers value may be a string consisting of multiples of 6
+-- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
+-- All in network (big endian) notation"
+-- TODO: deal with DNS, IPv6, other way to encode peers (i.e. list of dicts)
+getPeers :: Map.Map BL.ByteString Bencode -> [(IPv4, PortID)]
 getPeers hash =
   let BString rawPeers = getValue "peers" hash
       peers            = chunksOf 6 $ unpack rawPeers
@@ -52,13 +53,13 @@ getPeers hash =
         concatTwoBytes [x, y] = PortNumber $ toEnum $ (x * 2^8) + y
         concatTwoBytes _      = error "invalid format for port number"
 
-getValue :: BL.ByteString -> Map.Map Bencode Bencode -> Bencode
-getValue key hash = fromJust $ Map.lookup (BString key) hash
+getValue :: BL.ByteString -> Map.Map BL.ByteString Bencode -> Bencode
+getValue key = fromJust . Map.lookup key
 
 -- parameters for GET request to tracker
 -- https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
 
-info_hash :: Map.Map Bencode Bencode -> (String, String)
+info_hash :: Map.Map BL.ByteString Bencode -> (String, String)
 info_hash hash =
   let value = showDigest . sha1 . antiParse $ getValue "info" hash
       -- only called on 20-byte SHA1 hashes, so odd case never happens
@@ -104,10 +105,10 @@ event = ("event", "started")
 
 -- construct url to use in GET request to tracker
 -- TODO: handle info_hash in standard manner instead of as a hacky special case
-constructURL :: StdGen -> Map.Map Bencode Bencode -> String
+constructURL :: StdGen -> Map.Map BL.ByteString Bencode -> String
 constructURL seed hash =
-  let strip   = drop 1 . dropWhile (/= ':') -- for bencoded strings
-      baseURL = strip . unpack . antiParse $ getValue "announce" hash
+  let strip    = drop 1 . dropWhile (/= ':') -- for bencoded strings
+      baseURL  = strip . unpack . antiParse $ getValue "announce" hash
       infoHash = fst (info_hash hash) ++ "=" ++ snd (info_hash hash)
   in  baseURL ++ "?" ++ infoHash ++ "&" ++
       urlEncodeVars [ peer_id seed
