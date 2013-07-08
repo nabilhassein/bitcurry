@@ -4,18 +4,20 @@ module TrackerClient where
 
 import           Bencode (Bencode(..), antiParse, parseBencode)
 import           Data.Attoparsec.Lazy (Result(..), parse)
-import           Data.ByteString.Lazy.Char8 (unpack)
+import           Data.ByteString.Lazy.Char8 (pack, unpack)
+import           Data.Char (ord)
 import           Data.Digest.Pure.SHA (sha1, showDigest)
+import           Data.IP (IPv4, toIPv4)
+import           Data.List.Split (chunksOf)
 import           Data.Maybe (fromJust)
+import           Network (PortID(..))
 import           Network.HTTP (getRequest, getResponseBody, simpleHTTP)
 import           Network.HTTP.Base (urlEncodeVars)
-import           System.Exit (exitFailure)
 import           System.Random (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 
--- TODO: write some real tests instead of this hacky main
-main :: IO ()
+main :: IO [(IPv4, PortID)]
 main = do
   let file = "test/archlinux.torrent"
       seed = mkStdGen 42
@@ -24,16 +26,26 @@ main = do
   -- `parse parseBencode contents` should always result in Done;
   -- but if the torrent file is incorrectly encoded, this code will error
   -- TODO: make the program handle this case gracefully
-  let (Done remainder hash) = parse parseBencode contents
-      url                   = constructURL seed hash
-  case remainder of
-    "" -> putStrLn ("CONTINUING; consumed all of torrent file " ++ file)
-    _  -> putStrLn ("ABORTING; could not consume all of torrent file " ++ file)
-          >> exitFailure
+  let Done "" contentsHash = parse parseBencode contents
+      url                  = constructURL seed contentsHash
   putStrLn $ "making GET request to:\n" ++ url
   response <- simpleHTTP $ getRequest url
-  putStrLn "the response from the server is:"
-  getResponseBody response >>= print
+  putStrLn "the raw response from the server is:"
+  foo <- getResponseBody response
+  putStrLn foo
+  let Done "" responseHash = parse parseBencode (pack foo)
+      BString rawpeers     = getValue "peers" responseHash
+      peers                = chunksOf 6 $ unpack rawpeers
+      rawAddresses         = map (take 4) peers
+      rawPorts             = map (drop 4) peers
+      addresses            = map toIPv4 $ map (map ord) rawAddresses
+      ports                = map helper $ map (map ord) rawPorts
+  putStrLn "parsed this response as:"
+  return $ zip addresses ports
+
+helper :: [Int] -> PortID
+helper [x, y] = PortNumber $ toEnum $ (x * 2^8) + y -- concatenate two bytes
+helper _      = error "invalid format for port number"
 
 -- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
 -- it is possible to cause an exception rather than gracefully handle an error
@@ -49,7 +61,7 @@ info_hash hash =
   let value = showDigest . sha1 . antiParse $ getValue "info" hash
       -- only called on 20-byte SHA1 hashes, so odd case never happens
       -- TODO: make this less appallingly hacky
-      -- check sha1 library for a better way to encodepercents -- binary instead of hex
+      -- check sha1 library for a way to encode '%'s as binary instead of hex
       encodePercents ""        = ""
       encodePercents (a:b:str) = '%' : a : b : encodePercents str
   in ("info_hash", encodePercents value)

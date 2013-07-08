@@ -21,6 +21,7 @@ library
                      , QuickCheck ==2.6.*
                      , random ==1.0.*
                      , SHA ==1.6.*
+                     , iproute ==1.2.*
   hs-source-dirs:      src
   ghc-options:         -Wall
 
