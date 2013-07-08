@@ -21,42 +21,44 @@ main :: IO [(IPv4, PortID)]
 main = do
   let file = "test/archlinux.torrent"
       seed = mkStdGen 42
+  BDict hash <- makeTrackerRequest seed file
+  return $ getPeers hash
+
+makeTrackerRequest :: StdGen -> FilePath -> IO Bencode
+makeTrackerRequest seed file = do
   contents <- BL.readFile file
   -- for a torrent file correctly encoded as described in the specification,
-  -- `parse parseBencode contents` should always result in Done;
+  -- `parse parseBencode contents` should always result in Done and a BDict;
   -- but if the torrent file is incorrectly encoded, this code will error
   -- TODO: make the program handle this case gracefully
-  let Done "" contentsHash = parse parseBencode contents
-      url                  = constructURL seed contentsHash
-  putStrLn $ "making GET request to:\n" ++ url
-  response <- simpleHTTP $ getRequest url
-  putStrLn "the raw response from the server is:"
-  foo <- getResponseBody response
-  putStrLn foo
-  let Done "" responseHash = parse parseBencode (pack foo)
-      BString rawpeers     = getValue "peers" responseHash
-      peers                = chunksOf 6 $ unpack rawpeers
-      rawAddresses         = map (take 4) peers
-      rawPorts             = map (drop 4) peers
-      addresses            = map toIPv4 $ map (map ord) rawAddresses
-      ports                = map helper $ map (map ord) rawPorts
-  putStrLn "parsed this response as:"
-  return $ zip addresses ports
+  let Done "" (BDict hash) = parse parseBencode contents
+      url                  = constructURL seed hash
+  response <- getResponseBody =<< simpleHTTP (getRequest url)
+  let Done "" answer = parse parseBencode $ pack response
+  return answer
 
-helper :: [Int] -> PortID
-helper [x, y] = PortNumber $ toEnum $ (x * 2^8) + y -- concatenate two bytes
-helper _      = error "invalid format for port number"
+-- from spec: "the peers value may be a string consisting of multiples of
+-- 6 bytes. First 4 bytes are the IP address and last 2 bytes are the port
+-- number. All in network (big endian) notation"
+-- TODO: deal with DNS, IPv6, other way to encode peers (list of dicts)
+getPeers :: Map.Map Bencode Bencode -> [(IPv4, PortID)]
+getPeers hash =
+  let BString rawPeers = getValue "peers" hash
+      peers            = chunksOf 6 $ unpack rawPeers
+      addresses        = map (toIPv4 . map ord . take 4) peers
+      ports            = map (concatTwoBytes . map ord . drop 4) peers
+  in zip addresses ports
+  where concatTwoBytes :: [Int] -> PortID
+        concatTwoBytes [x, y] = PortNumber $ toEnum $ (x * 2^8) + y
+        concatTwoBytes _      = error "invalid format for port number"
 
--- TODO: don't use fromJust -- if hash is bencoded but non-spec-conforming,
--- it is possible to cause an exception rather than gracefully handle an error
-getValue :: BL.ByteString -> Bencode -> Bencode
-getValue key (BDict hash) = fromJust $ Map.lookup (BString key) hash
-getValue _   _            = error "getValue: hash param is not a BDict"
+getValue :: BL.ByteString -> Map.Map Bencode Bencode -> Bencode
+getValue key hash = fromJust $ Map.lookup (BString key) hash
 
 -- parameters for GET request to tracker
 -- https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
 
-info_hash :: Bencode -> (String, String)
+info_hash :: Map.Map Bencode Bencode -> (String, String)
 info_hash hash =
   let value = showDigest . sha1 . antiParse $ getValue "info" hash
       -- only called on 20-byte SHA1 hashes, so odd case never happens
@@ -102,7 +104,7 @@ event = ("event", "started")
 
 -- construct url to use in GET request to tracker
 -- TODO: handle info_hash in standard manner instead of as a hacky special case
-constructURL :: StdGen -> Bencode -> String
+constructURL :: StdGen -> Map.Map Bencode Bencode -> String
 constructURL seed hash =
   let strip   = drop 1 . dropWhile (/= ':') -- for bencoded strings
       baseURL = strip . unpack . antiParse $ getValue "announce" hash
