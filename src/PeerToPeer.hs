@@ -2,17 +2,16 @@
 
 module PeerToPeer where
 
-import           Bencode (Bencode(..))
-import           TrackerClient (getTorrentInfo, getValue, makeTrackerRequest,
-                                info_hash, peer_id)
-import           Data.ByteString.Lazy.Char8 (pack, unpack)
-import           Data.Char (ord)
-import           Data.IP (IPv4, toIPv4)
-import           Data.List.Split (chunksOf)
-import           Network (PortID(..), connectTo)
-import           System.Random (StdGen, mkStdGen)
+import Bencode                    (Bencode(BString, BInt, BList, BDict), Hash)
+import TrackerClient              (getTorrentInfo, getValue, makeTrackerRequest,
+                                   info_hash, peer_id)
+import Data.ByteString.Lazy.Char8 (pack, unpack)
+import Data.Char                  (ord)
+import Data.IP                    (IPv4, toIPv4)
+import Data.List.Split            (chunksOf)
+import Network                    (PortID(..), connectTo)
+import System.Random              (StdGen, mkStdGen)
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map             as Map
 
 
 main :: IO BL.ByteString
@@ -32,7 +31,7 @@ main = do
 -- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
 -- All in network (big endian) notation"
 -- TODO: deal with DNS, IPv6, other way to encode peers (i.e. list of dicts)
-getPeers :: Map.Map BL.ByteString Bencode -> [(IPv4, PortID)]
+getPeers :: Hash -> [(IPv4, PortID)]
 getPeers hash =
   let BString rawPeers = getValue "peers" hash
       peers            = chunksOf 6 $ unpack rawPeers
@@ -44,7 +43,7 @@ getPeers hash =
         concatTwoBytes _      = error "invalid format for port number"
 
 
-handshake :: StdGen -> Map.Map BL.ByteString Bencode -> BL.ByteString
+handshake :: StdGen -> Hash -> BL.ByteString
 handshake seed hash = foldr1 BL.append [ pstrlen
                                        , pstr
                                        , reserved

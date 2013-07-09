@@ -3,16 +3,18 @@
 module TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash,
                       peer_id) where
 
-import           Bencode (Bencode(..), Hash, antiParse, parseBencode)
-import           Data.Attoparsec.Lazy (Result(..), parse)
-import           Data.ByteString.Lazy.Char8 (pack, unpack)
-import           Data.Digest.Pure.SHA (sha1, showDigest)
-import           Data.Maybe (fromJust)
-import           Network.HTTP (getRequest, getResponseBody, simpleHTTP)
-import           Network.HTTP.Base (urlEncodeVars)
-import           System.Random (StdGen, mkStdGen, randomRs)
+import Prelude hiding (lookup)
+
+import Bencode                    (Bencode(..), Hash, antiParse, parseBencode)
+import Data.Attoparsec.Lazy       (Result(..), parse)
+import Data.ByteString.Lazy.Char8 (pack, unpack)
+import Data.Digest.Pure.SHA       (sha1, showDigest)
+import Data.Map                   (lookup)
+import Data.Maybe                 (fromJust)
+import Network.HTTP               (getRequest, getResponseBody, simpleHTTP)
+import Network.HTTP.Base          (urlEncodeVars)
+import System.Random              (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map             as Map
 
 
 main :: IO Hash
@@ -39,7 +41,7 @@ makeTrackerRequest seed hash = do
 
 -- TODO: stop using fromJust and handle errors gracefully instead
 getValue :: BL.ByteString -> Hash -> Bencode
-getValue key = fromJust . Map.lookup key
+getValue key = fromJust . lookup key
 
 info_hash :: Hash -> (String, String)
 info_hash hash =

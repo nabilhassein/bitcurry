@@ -2,10 +2,10 @@
 
 module Test where
 
-import           Bencode (Bencode(..), parseBencode, antiParse)
-import           Control.Monad (replicateM)
-import           Test.QuickCheck
-import           Data.Attoparsec.Lazy (Result(..), parse)
+import Bencode              (Bencode(..), parseBencode, antiParse)
+import Control.Monad        (replicateM)
+import Test.QuickCheck
+import Data.Attoparsec.Lazy (Result(..), parse)
 import qualified Data.ByteString.Lazy as BL
 import qualified Text.Show.ByteString as TSB
 

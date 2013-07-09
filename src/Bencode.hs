@@ -2,11 +2,11 @@
 
 module Bencode (Bencode(..), Hash, parseBencode, antiParse) where
 
-import           Control.Applicative ((<|>))
-import           Data.Attoparsec (Parser, many', count, anyWord8, string)
-import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
-import           Data.ByteString.Lazy.Char8 () -- instance IsString ByteString
-import           Data.Map (Map, toList, fromList)
+import Control.Applicative              ((<|>))
+import Data.Attoparsec                  (Parser, many', count, anyWord8, string)
+import Data.Attoparsec.ByteString.Char8 (decimal, signed)
+import Data.ByteString.Lazy.Char8       () -- instance IsString ByteString
+import Data.Map                         (Map, toList, fromList)
 import qualified Data.ByteString.Lazy as BL
 import qualified Text.Show.ByteString as TSB
 
