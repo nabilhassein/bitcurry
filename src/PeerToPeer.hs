@@ -3,7 +3,8 @@
 module PeerToPeer where
 
 import           Bencode (Bencode(..))
-import           TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash, peer_id)
+import           TrackerClient (getTorrentInfo, getValue, makeTrackerRequest,
+                                info_hash, peer_id)
 import           Data.ByteString.Lazy.Char8 (pack, unpack)
 import           Data.Char (ord)
 import           Data.IP (IPv4, toIPv4)
@@ -22,8 +23,8 @@ main = do
       ip    = show $ fst $ head peers
       port  = snd $ head peers
       msg   = handshake (mkStdGen 42) torrentInfo
-  handle <- connectTo ip port
   putStrLn $ "send handshake to " ++ ip ++ " " ++ show port ++ ":\n" ++ show msg
+  handle <- connectTo ip port
   BL.hPut handle msg
   BL.hGet handle 68
 

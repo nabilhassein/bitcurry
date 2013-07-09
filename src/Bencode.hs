@@ -6,12 +6,12 @@ import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
 import           Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import           Data.ByteString.Lazy.Char8 () -- instance IsString ByteString
+import           Data.Map (Map, toList, fromList)
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map             as Map
 import qualified Text.Show.ByteString as TSB
 
 
-type Hash = Map.Map BL.ByteString Bencode
+type Hash    = Map BL.ByteString Bencode
 data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
@@ -23,10 +23,10 @@ antiParse (BString s) = TSB.show (BL.length s) `BL.append` ":" `BL.append` s
 antiParse (BInt i)    = "i" `BL.append` TSB.show i `BL.append` "e"
 antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
-  where helper (BDict hash) = case Map.toList hash of
+  where helper (BDict hash) = case toList hash of
           []        -> ""
           (k, v):xs -> antiParse (BString k) `BL.append` antiParse v `BL.append`
-                       helper (BDict $ Map.fromList xs)
+                       helper (BDict $ fromList xs)
 
 parseBencode :: Parser Bencode
 parseBencode = parseString <|> parseInteger <|> parseList <|> parseDictionary
@@ -61,7 +61,7 @@ parseDictionary = do
   _  <- string "d"
   xs <- many' parseHash
   _  <- string "e"
-  return $ BDict $ Map.fromList xs
+  return $ BDict $ fromList xs
 
 parseHash :: Parser (BL.ByteString, Bencode)
 parseHash = do

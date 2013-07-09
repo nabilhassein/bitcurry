@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash, peer_id) where
+module TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash,
+                      peer_id) where
 
 import           Bencode (Bencode(..), Hash, antiParse, parseBencode)
 import           Data.Attoparsec.Lazy (Result(..), parse)
