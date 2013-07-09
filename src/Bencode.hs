@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Bencode (Bencode(..), parseBencode, antiParse) where
+module Bencode (Bencode(..), Hash, parseBencode, antiParse) where
 
 import           Control.Applicative ((<|>))
 import           Data.Attoparsec (Parser, many', count, anyWord8, string)
@@ -10,10 +10,12 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 import qualified Text.Show.ByteString as TSB
 
+
+type Hash = Map.Map BL.ByteString Bencode
 data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
-             | BDict (Map.Map BL.ByteString Bencode)
+             | BDict Hash
              deriving (Show, Eq, Ord)
 
 antiParse :: Bencode -> BL.ByteString
@@ -22,10 +24,9 @@ antiParse (BInt i)    = "i" `BL.append` TSB.show i `BL.append` "e"
 antiParse (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case Map.toList hash of
-                                []        -> ""
-                                (k, v):xs -> antiParse (BString k) `BL.append`
-                                             antiParse v           `BL.append`
-                                             helper (BDict $ Map.fromList xs)
+          []        -> ""
+          (k, v):xs -> antiParse (BString k) `BL.append` antiParse v `BL.append`
+                       helper (BDict $ Map.fromList xs)
 
 parseBencode :: Parser Bencode
 parseBencode = parseString <|> parseInteger <|> parseList <|> parseDictionary
@@ -52,9 +53,8 @@ parseList = do
   _  <- string "e"
   return $ BList xs
 
--- make sure this preserves order of dictionary; from the spec:
--- Keys must be strings and appear in sorted order -- (sorted as raw strings,
--- not alphanumerics). The strings should be compared
+-- TODO: from the spec: Keys must be strings and appear in sorted order
+-- (sorted as raw strings, not alphanumerics). The strings should be compared
 -- using a binary comparison, not a culture-specific "natural" comparison.
 parseDictionary :: Parser Bencode
 parseDictionary = do

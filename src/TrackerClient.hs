@@ -1,16 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module TrackerClient where
+module TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash, peer_id) where
 
-import           Bencode (Bencode(..), antiParse, parseBencode)
+import           Bencode (Bencode(..), Hash, antiParse, parseBencode)
 import           Data.Attoparsec.Lazy (Result(..), parse)
 import           Data.ByteString.Lazy.Char8 (pack, unpack)
-import           Data.Char (ord)
 import           Data.Digest.Pure.SHA (sha1, showDigest)
-import           Data.IP (IPv4, toIPv4)
-import           Data.List.Split (chunksOf)
 import           Data.Maybe (fromJust)
-import           Network (PortID(..))
 import           Network.HTTP (getRequest, getResponseBody, simpleHTTP)
 import           Network.HTTP.Base (urlEncodeVars)
 import           System.Random (StdGen, mkStdGen, randomRs)
@@ -18,48 +14,33 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map             as Map
 
 
-main :: IO [(IPv4, PortID)]
-main = do
-  let file = "test/archlinux.torrent"
-      seed = mkStdGen 42
-  BDict hash <- makeTrackerRequest seed file
-  return $ getPeers hash
+main :: IO Hash
+main = getTorrentInfo "test/archlinux.torrent" >>=
+       makeTrackerRequest (mkStdGen 42)
 
-makeTrackerRequest :: StdGen -> FilePath -> IO Bencode
-makeTrackerRequest seed file = do
-  contents <- BL.readFile file
-  -- for a torrent file correctly encoded as described in the specification,
-  -- `parse parseBencode contents` should always result in Done and a BDict;
-  -- but if the torrent file is incorrectly encoded, this code will error
-  -- TODO: make the program handle this case gracefully
+-- for a torrent file correctly encoded as described in the specification,
+-- `parse parseBencode contents` always results in `Done "" (BDict hash)`;
+-- but if the torrent file is incorrectly encoded, this code will error
+-- similarly for the response from the tracker in the next function below
+-- TODO: make the program handle this case gracefully
+getTorrentInfo :: FilePath -> IO Hash
+getTorrentInfo filename = do
+  contents <- BL.readFile filename
   let Done "" (BDict hash) = parse parseBencode contents
-      url                  = constructURL seed hash
+  return hash
+
+makeTrackerRequest :: StdGen -> Hash -> IO Hash
+makeTrackerRequest seed hash = do
+  let url = constructURL seed hash
   response <- getResponseBody =<< simpleHTTP (getRequest url)
-  let Done "" answer = parse parseBencode $ pack response
-  return answer
+  let Done "" (BDict hash) = parse parseBencode $ pack response
+  return hash
 
--- from the spec: "the peers value may be a string consisting of multiples of 6
--- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
--- All in network (big endian) notation"
--- TODO: deal with DNS, IPv6, other way to encode peers (i.e. list of dicts)
-getPeers :: Map.Map BL.ByteString Bencode -> [(IPv4, PortID)]
-getPeers hash =
-  let BString rawPeers = getValue "peers" hash
-      peers            = chunksOf 6 $ unpack rawPeers
-      addresses        = map (toIPv4 . map ord . take 4) peers
-      ports            = map (concatTwoBytes . map ord . drop 4) peers
-  in zip addresses ports
-  where concatTwoBytes :: [Int] -> PortID
-        concatTwoBytes [x, y] = PortNumber $ toEnum $ (x * 2^8) + y
-        concatTwoBytes _      = error "invalid format for port number"
-
-getValue :: BL.ByteString -> Map.Map BL.ByteString Bencode -> Bencode
+-- TODO: stop using fromJust and handle errors gracefully instead
+getValue :: BL.ByteString -> Hash -> Bencode
 getValue key = fromJust . Map.lookup key
 
--- parameters for GET request to tracker
--- https://wiki.theory.org/BitTorrentSpecification#Tracker_HTTP.2FHTTPS_Protocol
-
-info_hash :: Map.Map BL.ByteString Bencode -> (String, String)
+info_hash :: Hash -> (String, String)
 info_hash hash =
   let value = showDigest . sha1 . antiParse $ getValue "info" hash
       -- only called on 20-byte SHA1 hashes, so odd case never happens
@@ -105,7 +86,7 @@ event = ("event", "started")
 
 -- construct url to use in GET request to tracker
 -- TODO: handle info_hash in standard manner instead of as a hacky special case
-constructURL :: StdGen -> Map.Map BL.ByteString Bencode -> String
+constructURL :: StdGen -> Hash -> String
 constructURL seed hash =
   let strip    = drop 1 . dropWhile (/= ':') -- for bencoded strings
       baseURL  = strip . unpack . antiParse $ getValue "announce" hash
