@@ -21,7 +21,7 @@ main = getTorrentInfo "test/archlinux.torrent" >>=
 
 -- for a torrent file correctly encoded as described in the specification,
 -- `parse parseBencode contents` always results in `Done "" (BDict hash)`;
--- but if the torrent file is incorrectly encoded, this code will error
+-- but if the torrent file is incorrectly encoded, this code will error;
 -- similarly for the response from the tracker in the next function below
 -- TODO: make the program handle this case gracefully
 getTorrentInfo :: FilePath -> IO Hash
@@ -34,8 +34,8 @@ makeTrackerRequest :: StdGen -> Hash -> IO Hash
 makeTrackerRequest seed hash = do
   let url = constructURL seed hash
   response <- getResponseBody =<< simpleHTTP (getRequest url)
-  let Done "" (BDict hash) = parse parseBencode $ pack response
-  return hash
+  let Done "" (BDict answer) = parse parseBencode $ pack response
+  return answer
 
 -- TODO: stop using fromJust and handle errors gracefully instead
 getValue :: BL.ByteString -> Hash -> Bencode
