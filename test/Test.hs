@@ -4,14 +4,16 @@ module Test where
 
 import Bencode              (Bencode(..), parseBencode, antiParse)
 import Control.Monad        (replicateM)
-import Test.QuickCheck
 import Data.Attoparsec.Lazy (Result(..), parse)
+import Data.Map             (fromList)
+import Test.QuickCheck      (Arbitrary, Gen, Property, arbitrary, choose,
+                             quickCheck, verboseCheck, (==>))
 import qualified Data.ByteString.Lazy as BL
 import qualified Text.Show.ByteString as TSB
 
 
 main :: IO ()
-main = quickCheck prop_bytestring_inverse
+main = quickCheck prop_bencode_inverse
 
 -- TODO: I interpret conformance to the bencoding specification to entail
 -- not only acceptance of all valid inputs, but also rejection of all invalid
@@ -19,9 +21,22 @@ main = quickCheck prop_bytestring_inverse
 
 instance Arbitrary BL.ByteString where
   arbitrary = do
-    n      <- choose (1, 1000 :: Int)
-    nbytes <- replicateM n arbitrary -- nbytes :: [GHC.Word.Word8]
+    n      <- choose (0, 1000) :: Gen Int
+    nbytes <- replicateM n arbitrary
     return $ TSB.show n `BL.append` ":" `BL.append` BL.pack nbytes
+
+
+instance Arbitrary Bencode where
+  arbitrary = do
+    n <- choose (1, 3) :: Gen Int
+    case n of
+      1 -> arbitrary >>= return . BString
+      2 -> arbitrary >>= return . BInt
+      3 -> choose (0, 2 :: Int) >>= flip replicateM arbitrary >>= return . BList
+      4 -> do
+        k <- choose (0, 2) :: Gen Int
+        kpairs <- replicateM k arbitrary
+        return $ BDict $ fromList kpairs
 
 -- tests to write: actual unit tests for parseBencode and antiParse
 
