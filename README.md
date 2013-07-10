@@ -12,12 +12,16 @@ with associated code for parsing and anti-parsing.
 I've also written a draft of the module (src/TrackerClient.hs)
 that sends a GET request to the tracker. This works as intended.
 
-After tests are in place, we can begin implementing peer-to-peer communication,
-and actually downloading files.
+I've taken the very first steps re: peer-to-peer communication.
+
+I've begun writing tests of the pure code. Greater coverage is needed, but a
+ higher priority than testing pure code is to devise a good method to test
+networked communication.
 
 ## possible issues to revisit
 ### lazy versus strict ByteStrings
 Currently lazy ByteStrings are used universally in this project.
+No analysis has been done re: whether strict ByteStrings might be better.
 
 ### encoding -- ASCII vs. Unicode
 See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
@@ -30,7 +34,7 @@ in src/TrackerClient.hs is currently an awful hack. This must be improved.
 
 # TODOs
 
-Figure out modules: do we want this to be a library?
+Figure out modules: what to expose as a library, and how?
 
 See also the TODOs in the code. (Meta: do TODOs belong in code?)
 
@@ -38,19 +42,12 @@ See also the TODOs in the code. (Meta: do TODOs belong in code?)
 We need tests. Unfortunately, testing is not always straightforward.
 However, it is a top priority to write good tests for:
 
-1. Client-tracker interaction -- how can we know if the GET request is correct?
-This is particularly tricky because it's possible to make a correct request and
-receive an incorrect response -- or no response -- due to no fault of the client
-(if the tracker has an error, cannot be found, the .torrent file is wrong, etc.)
+1. Network communication -- given that errors are possible over the wire
+and in trackers, peers, etc., how can we know if our code is correct?
+It's possible to make a correct request and receive an incorrect response --
+ or no response -- due to no fault of the client.
 2. Parsing ByteStrings into our Bencoded data structure
 3. Anti-parsing our Bencoded data structure back into ByteStrings
-4. Any code we write in the future -- preferably soon after, or even before
-
-Informally testing the parser and anti-parser in the REPL was simple,
-and apparently effective; they seem to work as specified.
-However, it is not so simple to test the client-tracker interaction in this way.
-
-So it's about time to get started with QuickCheck, HUnit, etc.
 
 ## future features
 
@@ -59,9 +56,8 @@ BEP 15 is a particular priority: implementing ability to communicate with
 trackers over UDP. Useful services like openbittorrent use this.
 
 ### creating torrent files
-It would be a nice feature if bitcurry offered a way of creating torrents
-that is convenient to the end user, with a command-line interface.
-Doing it manually is tedious, error-prone, and obviously the wrong thing.
+bitcurry ought to offer a convenient command-line interface to create torrents,
+so that it is useful for upload as well as download.
 
 
 # getting started hacking bitcurry
@@ -145,3 +141,4 @@ Currently, writing tests would be especially helpful.
 - https://github.com/astro/haskell-torrent
 - http://www.haskell.org/pipermail/haskell-cafe/2005-April/009638.html
 - http://jlouisramblings.blogspot.com/2010/01/state-of-haskell-torrent.html
+- http://book.realworldhaskell.org/read/testing-and-quality-assurance.html
