@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module TrackerClient (getTorrentInfo, getValue, makeTrackerRequest, info_hash,
-                      peer_id) where
+                      alt_info_hash, peer_id) where
 
 import Prelude hiding (lookup)
 
-import Bencode                    (Bencode(..), Hash, antiParse, parseBencode)
-import Data.Attoparsec.Lazy       (Result(..), parse)
+import Bencode                    (Bencode(BString, BInt, BList, BDict), Hash,
+                                   antiParse, parseBencode)
+import Data.Attoparsec.Lazy       (Result(Done), parse)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
-import Data.Digest.Pure.SHA       (sha1, showDigest)
+import Data.Digest.Pure.SHA       (sha1, showDigest, bytestringDigest)
 import Data.Map                   (lookup)
 import Data.Maybe                 (fromJust)
 import Network.HTTP               (getRequest, getResponseBody, simpleHTTP)
@@ -16,7 +17,8 @@ import Network.HTTP.Base          (urlEncodeVars)
 import System.Random              (StdGen, mkStdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 
-
+-- TODO: can we make GET request with all ByteStrings? it's confusing to use
+-- Strings here when ByteStrings are required for peer-to-peer communication
 main :: IO Hash
 main = getTorrentInfo "test/archlinux.torrent" >>=
        makeTrackerRequest (mkStdGen 42)
@@ -42,6 +44,9 @@ makeTrackerRequest seed hash = do
 -- TODO: stop using fromJust and handle errors gracefully instead
 getValue :: BL.ByteString -> Hash -> Bencode
 getValue key = fromJust . lookup key
+
+alt_info_hash :: Hash -> BL.ByteString
+alt_info_hash hash = bytestringDigest . sha1 . antiParse $ getValue "info" hash
 
 info_hash :: Hash -> (String, String)
 info_hash hash =

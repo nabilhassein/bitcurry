@@ -4,7 +4,7 @@ module PeerToPeer where
 
 import Bencode                    (Bencode(BString, BInt, BList, BDict), Hash)
 import TrackerClient              (getTorrentInfo, getValue, makeTrackerRequest,
-                                   info_hash, peer_id)
+                                   alt_info_hash, info_hash, peer_id)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Data.Char                  (ord)
 import Data.IP                    (IPv4, toIPv4)
@@ -22,7 +22,8 @@ main = do
       ip    = show $ fst $ head peers
       port  = snd $ head peers
       msg   = handshake (mkStdGen 42) torrentInfo
-  putStrLn $ "send handshake to " ++ ip ++ " " ++ show port ++ ":\n" ++ show msg
+  putStrLn $ "handshake to " ++ ip ++ " " ++ show port ++ ":\n" ++ show msg
+  putStrLn $ "this message has length " ++ show (BL.length msg)
   handle <- connectTo ip port
   BL.hPut handle msg
   BL.hGet handle 68
@@ -52,6 +53,6 @@ handshake seed hash = foldr1 BL.append [ pstrlen
                                        ]
   where pstrlen   = BL.singleton 19
         pstr      = "BitTorrent protocol"
-        reserved  = "00000000"
-        infoHash  = pack $ snd $ info_hash hash
+        reserved  = "\0\0\0\0\0\0\0\0"
+        infoHash  = alt_info_hash hash
         peerID    = pack $ snd $ peer_id seed
