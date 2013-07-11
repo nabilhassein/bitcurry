@@ -28,3 +28,6 @@ library
   ghc-options:         -Wall
   extensions:          OverloadedStrings
 
+source-repository head
+  type:     git
+  location: git://github.com/nabilhassein/bitcurry.git
