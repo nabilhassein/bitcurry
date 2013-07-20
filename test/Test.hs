@@ -33,10 +33,9 @@ instance Arbitrary Bencode where
       1 -> arbitrary >>= return . BString
       2 -> arbitrary >>= return . BInt
       3 -> choose (0, 2 :: Int) >>= flip replicateM arbitrary >>= return . BList
-      4 -> do
-        k <- choose (0, 2) :: Gen Int
-        kpairs <- replicateM k arbitrary
-        return $ BDict $ fromList kpairs
+      4 -> choose (0, 2 :: Int)
+           >>= flip replicateM arbitrary
+           >>= return . BDict . fromList
 
 -- tests to write: actual unit tests for parseBencode and antiParse
 
