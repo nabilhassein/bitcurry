@@ -1,3 +1,2 @@
 dist/
-.virthualenv/
-virthualenv.log
+.hsenv

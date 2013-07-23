@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Bencode (Bencode(..), Hash, parseBencode, antiParse) where
+module Bencode (Bencode(..), Hash, parseBencode, antiParse, getValue) where
+
+import Prelude hiding (lookup)
 
 import Control.Applicative              ((<|>))
 import Data.Attoparsec                  (Parser, many', count, anyWord8, string)
 import Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import Data.ByteString.Lazy.Char8       () -- instance IsString ByteString
-import Data.Map                         (Map, toList, fromList)
+import Data.Map                         (Map, toList, fromList, lookup)
 import qualified Data.ByteString.Lazy as BL
-import qualified Text.Show.ByteString as TSB
 
 
 type Hash    = Map BL.ByteString Bencode
@@ -18,9 +19,10 @@ data Bencode = BString BL.ByteString
              | BDict Hash
              deriving (Show, Eq, Ord)
 
+-- note: using fromIntegral :: Int -> Word8 computes an answer modulo 256
 antiParse :: Bencode ->    BL.ByteString
-antiParse    (BString s) = TSB.show (BL.length s) `BL.append` ":" `BL.append` s
-antiParse    (BInt i)    = "i" `BL.append` TSB.show i `BL.append` "e"
+antiParse    (BString s) = fromIntegral (BL.length s) `BL.cons` ":" `BL.append` s
+antiParse    (BInt i)    = "i" `BL.append` ((fromIntegral i) `BL.cons` "e")
 antiParse    (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
 antiParse    (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
   where helper (BDict hash) = case toList hash of
@@ -68,3 +70,8 @@ parseHash  = do
   BString key <- parseString
   val         <- parseBencode
   return (key, val)
+
+
+-- helper functions
+getValue :: BL.ByteString -> Hash -> Maybe Bencode
+getValue = lookup

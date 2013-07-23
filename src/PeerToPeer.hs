@@ -2,59 +2,92 @@
 
 module PeerToPeer where
 
-import Bencode                    (Bencode(BString, BInt, BList, BDict), Hash)
-import TrackerClient              (getTorrentInfo, getValue, makeTrackerRequest,
+import Bencode                    (Bencode(BString, BInt, BList, BDict), Hash,
+                                   getValue)
+import TrackerClient              (getTorrentInfo, makeTrackerRequest,
                                    alt_info_hash, info_hash, peer_id)
-import Control.Monad              (forM)
-import Data.ByteString.Lazy.Char8 (pack, unpack)
-import Data.Char                  (ord)
-import Data.IP                    (IPv4, toIPv4)
-import Data.List.Split            (chunksOf)
-import Network                    (PortID(..), connectTo)
+import Data.ByteString.Lazy.Char8 (pack) -- instance IsString ByteString
+import Network                    (HostName, PortID(..), connectTo)
 import System.Random              (StdGen, mkStdGen)
 import qualified Data.ByteString.Lazy as BL
 
 
-main :: IO [BL.ByteString]
-main  = do
-  torrentInfo <- getTorrentInfo "test/archlinux.torrent"
-  hash        <- makeTrackerRequest (mkStdGen 42) torrentInfo
-  let peers = getPeers hash
-      ips   = map (show . fst) peers
-      ports = map snd peers
-      msg   = handshake (mkStdGen 42) torrentInfo
-  putStrLn $ "handshake to peers:\n" ++ show msg
-  forM (take 5 $ zip ips ports) $ \(ip, port) -> do
-    putStrLn $ "connecting to " ++ ip ++ " via " ++ show port
-    handle <- connectTo ip port
-    BL.hPut handle msg
-    BL.hGet handle 68
+-- TODO: for messages with payloads, add more fields
+-- 
+data Message = KeepAlive
+             | Choke
+             | Unchoke
+             | Interested
+             | NotInterested
+             | Have
+             | Bitfield
+             | Request
+             | Piece
+             | Cancel
+             | Port
+
+encodeMessage :: Message ->      BL.ByteString
+encodeMessage    KeepAlive     = BL.singleton 0
+encodeMessage    Choke         = BL.singleton 1 `BL.append` BL.singleton 0
+encodeMessage    Unchoke       = BL.singleton 1 `BL.append` BL.singleton 1
+encodeMessage    Interested    = BL.singleton 1 `BL.append` BL.singleton 2
+encodeMessage    NotInterested = BL.singleton 1 `BL.append` BL.singleton 3
+
+decodeMessage :: BL.ByteString -> Maybe Message
+decodeMessage = undefined
+
+
+-- see "Implementer's Note" from the unofficial specification:
+-- https://wiki.theory.org/BitTorrentSpecification#Tracker_Response
+maxPeers :: Int
+maxPeers  = 30
+
+-- arbitrary
+globalSeed :: StdGen
+globalSeed  = mkStdGen 42
+
+-- TODO: is it practical to implement the client's "dance" w/peer as a FSM?
+downloadFromPeer :: HostName -> PortID -> BL.ByteString -> IO BL.ByteString
+downloadFromPeer    host        port      handshakeMsg   = do
+--  putStrLn $ "connecting to " ++ host ++ " via " ++ show port
+  handle <- connectTo host port
+  BL.hPut handle handshakeMsg
+  BL.hGet handle 68
 
 -- from the spec: "the peers value may be a string consisting of multiples of 6
 -- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
 -- All in network (big endian) notation"
 -- TODO: deal with DNS, IPv6, other way to encode peers (i.e. list of dicts)
-getPeers :: Hash -> [(IPv4, PortID)]
-getPeers    hash =
-  let BString rawPeers = getValue "peers" hash
-      peers            = chunksOf 6 $ unpack rawPeers
-      addresses        = map (toIPv4 . map ord . take 4) peers
-      ports            = map (concatTwoBytes . map ord . drop 4) peers
-  in zip addresses ports
-  where concatTwoBytes :: [Int] -> PortID
-        concatTwoBytes [x, y] = PortNumber $ toEnum $ (x * 2^8) + y
-        concatTwoBytes _      = error "invalid format for port number"
+getPeers :: Hash -> Maybe [(HostName, PortID)]
+getPeers    hash  = case getValue "peers" hash of
+  Just (BString binaryPeers) -> undefined
+  Just (BList   hashedPeers) -> undefined
+  _                          -> Nothing
 
 
-handshake :: StdGen -> Hash -> BL.ByteString
-handshake    seed      hash  = foldr1 BL.append [ pstrlen
-                                                , pstr
-                                                , reserved
-                                                , infoHash
-                                                , peerID
-                                                ]
+handshake :: StdGen -> Hash -> Maybe BL.ByteString
+handshake    seed      hash  =
+  case alt_info_hash hash of
+    Nothing       -> Nothing
+    Just infoHash -> Just $ foldr1 BL.append [ pstrlen
+                                             , pstr
+                                             , reserved
+                                             , infoHash
+                                             , peerID
+                                             ]
   where pstrlen   = BL.singleton 19
         pstr      = "BitTorrent protocol"
         reserved  = "\0\0\0\0\0\0\0\0"
-        infoHash  = alt_info_hash hash
         peerID    = pack $ snd $ peer_id seed
+
+main :: IO ()
+main = undefined
+-- sketch of flow:
+-- Read torrent file.
+-- If necessary info is extracted, make GET request to tracker; otherwise abort.
+-- Now extract list of peers from trakcer's HTTP response; if impossible, abort.
+-- Choose maxPeers peers; fork a thread to open a TCP connection with each.
+-- Each of these threads should maintain internal state, and act accordingly:
+-- https://wiki.theory.org/BitTorrentSpecification#Peer_wire_protocol_.28TCP.29
+-- The master thread should keep track of any relevant state information for all
+-- child threads, as well as piecing together the downloaded file.

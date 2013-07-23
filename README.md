@@ -5,38 +5,43 @@ It is written in Haskell.
 If this document fails to answer any questions you have about it,
 please let me know!
 
-# progress
+# current status
 So far, I've written a datatype for bencoding (src/Bencode.hs)
 with associated code for parsing and anti-parsing.
 
 I've also written a draft of the module (src/TrackerClient.hs)
-that sends a GET request to the tracker. This works as intended.
+that sends an HTTP GET request to the tracker. This works as intended.
 
 I've taken the very first steps re: peer-to-peer communication.
+The idea is to implement each TCP connection to a peer in its own thread.
+Haskell uses green threads so since the number of peers a client is actively
+engaged in downloading from is usually in the double digits,
+the number of threads this approach entails is very easily handled.
+
+There is no need for one TCP connection to have direct knowledge of another.
+Synchronization is, however, necessary for the following:  
+  - logging to stdout, stderr, or a file  
+  - writing to the file the client is trying to download from its peers  
+  - "playing games" or "dancing" with peers to get files according to a
+    hopefully effective algorithmic/game theoretic strategy
+
+One master thread communicating with all of its children should be a simple
+and effective model.
 
 I've begun writing tests of the pure code. Greater coverage is needed, but a
- higher priority than testing pure code is to devise a good method to test
+higher priority than testing pure code is to devise a good method to test
 networked communication.
 
-## possible issues to revisit
-### lazy versus strict ByteStrings
-Currently lazy ByteStrings are used universally in this project.
-No analysis has been done re: whether strict ByteStrings might be better.
-
-### encoding -- ASCII vs. Unicode
-See https://en.wikipedia.org/wiki/Bencode#Encoding_algorithm
-
-"specification does not deal with encoding of characters outside the ASCII set"
-
-### percent encoding
-The implementation of the info_hash param in the GET request to the tracker
-in src/TrackerClient.hs is currently an awful hack. This must be improved.
-
 # TODOs
-
 Figure out modules: what to expose as a library, and how?
 
-See also the TODOs in the code. (Meta: do TODOs belong in code?)
+String encoding and representation: sort out ASCII vs. UTF-8.
+In terms of Haskell types, there is Char, String, Text, Word8, and ByteString,
+as well as lazy vs strict considerations, esp. w.r.t. ByteStrings.
+Consider http://hackage.haskell.org/cgi-bin/hackage-scripts/package/utf8-string
+in addition to the currently imported modules.
+
+See also the TODOs in the code.
 
 ## testing
 We need tests. Unfortunately, testing is not always straightforward.
@@ -64,24 +69,24 @@ so that it is useful for upload as well as download.
 ## project initiation
 If you want to contribute to bitcurry (all are welcome!), first make sure that
 you have the [Haskell Platform](http://www.haskell.org/platform/) installed.
+(It is necessary to use GHC 7.6 for this project; bitcurry uses some functions
+and language features that are new to this version.)
 
 Then bring up a shell and:
 
     git clone git@github.com:nabilhassein/bitcurry.git
     cd bitcurry
-    cabal install virthualenv
-    virthualenv
+    cabal install hsenv
+    hsenv
 
 Follow the above steps the FIRST time you begin working on the project.
 
 Then, EVERY time before you do work such as editing code, or
 (especially!) `cabal install`-ing dependencies:
 
-    source .virthualenv/bin/activate
+    source .hsenv/bin/activate
 
-This will give the project a virtual environment, avoiding dependency hell (?).
-
-(See http://adit.io/posts/2013-04-15-making-a-website-with-haskell.html)
+This will give the project a virtual environment, avoiding dependency hell.
 
 ## directory annoyances
 
@@ -97,7 +102,7 @@ project's local `.ghci`, to apparent success. Let me know if you have trouble.
 
 ## building and testing
 
-    source .virthualenv/bin/activate
+    . .hsenv/bin/activate
     cabal configure --enable-tests && cabal build && cabal test
 
 If all is right with the world, this will build and test the package.
