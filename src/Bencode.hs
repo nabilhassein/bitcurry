@@ -9,6 +9,7 @@ import Data.Attoparsec                  (Parser, many', count, anyWord8, string)
 import Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import Data.ByteString.Lazy.Char8       () -- instance IsString ByteString
 import Data.Map                         (Map, toList, fromList, lookup)
+import Data.Monoid                      ((<>))
 import qualified Data.ByteString.Lazy as BL
 
 
@@ -21,14 +22,13 @@ data Bencode = BString BL.ByteString
 
 -- note: using fromIntegral :: Int -> Word8 computes an answer modulo 256
 antiParse :: Bencode ->    BL.ByteString
-antiParse    (BString s) = fromIntegral (BL.length s) `BL.cons` ":" `BL.append` s
-antiParse    (BInt i)    = "i" `BL.append` ((fromIntegral i) `BL.cons` "e")
-antiParse    (BList l)   = "l" `BL.append` foldr (BL.append . antiParse) "e" l
-antiParse    (BDict d)   = "d" `BL.append` helper (BDict d) `BL.append` "e"
+antiParse    (BString s) = fromIntegral (BL.length s) `BL.cons` ":" <> s
+antiParse    (BInt i)    = "i" <> ((fromIntegral i) `BL.cons` "e")
+antiParse    (BList l)   = "l" <> foldr (BL.append . antiParse) "e" l
+antiParse    (BDict d)   = "d" <> helper (BDict d) <> "e"
   where helper (BDict hash) = case toList hash of
           []        -> ""
-          (k, v):xs -> antiParse (BString k) `BL.append`
-                       antiParse v           `BL.append`
+          (k, v):xs -> antiParse (BString k) <> antiParse v <>
                        helper (BDict $ fromList xs)
 
 parseBencode :: Parser Bencode

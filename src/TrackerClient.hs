@@ -29,7 +29,9 @@ makeTrackerRequest    seed      dict  = case constructURL seed dict of
   Just url -> do
     response <- getResponseBody =<< simpleHTTP (getRequest url)
     case parse parseBencode $ pack response of
-      Done "" (BDict d) -> return $ Just d
+      Done "" (BDict d) -> case getValue "failure reason" dict of
+        Nothing -> return $ Just d
+        Just _  -> return Nothing
       _                 -> return Nothing
 
 -- TODO: handle info_hash in standard manner instead of as a hacky special case
@@ -37,9 +39,9 @@ makeTrackerRequest    seed      dict  = case constructURL seed dict of
 constructURL :: StdGen -> Dict -> Maybe String
 constructURL    seed      dict =
   case (getValue "announce" dict, info_hash dict) of
-    (Just dict, Just (key, val)) ->
+    (Just url, Just (key, val)) ->
       let strip    = drop 1 . dropWhile (/= ':') -- for bencoded strings
-          baseURL  = strip . unpack . antiParse $ dict
+          baseURL  = strip . unpack . antiParse $ url
           infoHash = key ++ "=" ++ val
       in  Just $ baseURL ++ "?" ++ infoHash ++ "&" ++
           urlEncodeVars [ peer_id seed
@@ -54,15 +56,14 @@ constructURL    seed      dict =
 
 -- % hackery is due to the requirements of the tracker server
 info_hash :: Dict -> Maybe (String, String)
-info_hash    dict  = case getValue "info" dict of
-  Nothing -> Nothing
-  Just d  -> let hash :: String
-                 hash  = showDigest . sha1 $ antiParse d
-                 encodePercents :: String -> String
-                 encodePercents    ""        = ""
-                 encodePercents    [_]       = error "SHA1 hashes are 20 bytes"
-                 encodePercents    (a:b:str) = '%' : a : b : encodePercents str
-             in  Just ("info_hash", encodePercents hash)
+info_hash    dict  = getValue "info" dict >>= \ d ->
+  let hash :: String
+      hash  = showDigest . sha1 $ antiParse d
+      encodePercents :: String -> String
+      encodePercents    []        = ""
+      encodePercents    [_]       = fail "fatal error: SHA1 hashes are 20 bytes"
+      encodePercents    (a:b:str) = '%' : a : b : encodePercents str
+  in Just ("info_hash", encodePercents hash)
 
 -- send to the peers over TCP, hence ByteString rather than String
 -- not used in this module but it logically belongs here

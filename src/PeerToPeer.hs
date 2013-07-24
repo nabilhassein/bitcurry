@@ -6,7 +6,10 @@ import Bencode                    (Bencode(BString, BInt, BList, BDict), Dict,
                                    getValue)
 import TrackerClient              (getTorrentInfo, makeTrackerRequest,
                                    bytestring_info_hash, info_hash, peer_id)
-import Data.ByteString.Lazy.Char8 (pack) -- instance IsString ByteString
+import Data.ByteString.Lazy.Char8 (pack, unpack) -- instance IsString ByteString
+import Data.List.Split            (chunksOf)
+import Data.Monoid                ((<>))
+import GHC.Word                   (Word8)
 import Network                    (HostName, PortID(..), connectTo)
 import System.Random              (StdGen, mkStdGen)
 import qualified Data.ByteString.Lazy as BL
@@ -25,12 +28,32 @@ data Message = KeepAlive
              | Cancel
              | Port
 
+-- from the spec: messages in the protocol take the form of
+-- <length prefix><message ID><payload>
+-- The length prefix is a four byte big-endian value.
+-- The message ID is a single decimal byte.
+-- The payload is message dependent. 
+
+-- note: using fromIntegral :: Int -> Word8 computes an answer modulo 256
+lengthPrefix :: Int -> BL.ByteString
+lengthPrefix         = BL.pack . padAndReverse . bytes
+  where bytes :: Int -> [Word8] -- little endian
+        bytes    0    = []
+        bytes    n    = (fromIntegral (n `mod` (2^8))) : bytes (n `div` (2^8))
+        padAndReverse   :: [Word8] ->         [Word8]
+        padAndReverse      []               = [0 , 0 , 0 , 0 ]
+        padAndReverse      [b1]             = [0 , 0 , 0 , b1]
+        padAndReverse      [b1, b2]         = [0 , 0 , b2, b1]
+        padAndReverse      [b1, b2, b3]     = [0 , b3, b2, b1]
+        padAndReverse      [b1, b2, b3, b4] = [b4, b3, b2, b1]
+        padAndReverse      _ = error "length must be < 2^32 to fit in 4 bytes"
+
 encodeMessage :: Message ->      BL.ByteString
-encodeMessage    KeepAlive     = BL.singleton 0
-encodeMessage    Choke         = BL.singleton 1 `BL.append` BL.singleton 0
-encodeMessage    Unchoke       = BL.singleton 1 `BL.append` BL.singleton 1
-encodeMessage    Interested    = BL.singleton 1 `BL.append` BL.singleton 2
-encodeMessage    NotInterested = BL.singleton 1 `BL.append` BL.singleton 3
+encodeMessage    KeepAlive     = lengthPrefix 0
+encodeMessage    Choke         = lengthPrefix 1 <> BL.singleton 0
+encodeMessage    Unchoke       = lengthPrefix 1 <> BL.singleton 1
+encodeMessage    Interested    = lengthPrefix 1 <> BL.singleton 2
+encodeMessage    NotInterested = lengthPrefix 1 <> BL.singleton 3
 
 decodeMessage :: BL.ByteString -> Maybe Message
 decodeMessage = undefined
@@ -56,26 +79,25 @@ downloadFromPeer    host        port      handshakeMsg   = do
 -- from the spec: "the peers value may be a string consisting of multiples of 6
 -- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
 -- All in network (big endian) notation"
-getPeers :: Dict -> Maybe [(HostName, PortID)]
+--getPeers :: Dict -> Maybe [(HostName, PortID)]
 getPeers    dict  = case getValue "peers" dict of
-  Just (BString binaryPeers) -> undefined
+  Just (BString binaryPeers) ->
+    let addrs = chunksOf 6 $ unpack binaryPeers
+        ips   = map (take 4) addrs
+        ports = map (drop 4) addrs
+    in  undefined
   Just (BList   hashedPeers) -> undefined
-  _                          -> Nothing
+  _                          -> undefined
 
 -- the first message sent by a client to a peer
 handshake :: StdGen -> Dict -> Maybe BL.ByteString
-handshake    seed      dict  = case bytestring_info_hash dict of
-  Nothing       -> Nothing
-  Just infoHash -> Just $ foldr1 BL.append [ pstrlen
-                                           , pstr
-                                           , reserved
-                                           , infoHash
-                                           , peerID
-                                           ]
+handshake    seed      dict  = bytestring_info_hash dict >>= \ infoHash ->
+  Just $ foldr1 BL.append [pstrlen, pstr, reserved, infoHash, peerID]
   where pstrlen   = BL.singleton 19
         pstr      = "BitTorrent protocol"
         reserved  = "\0\0\0\0\0\0\0\0"
         peerID    = pack $ snd $ peer_id seed
+
 
 main :: IO ()
 main = undefined
