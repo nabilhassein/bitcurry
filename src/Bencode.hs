@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Bencode (Bencode(..), Hash, parseBencode, antiParse, getValue) where
+module Bencode (Bencode(..), Dict, parseBencode, antiParse, getValue) where
 
 import Prelude hiding (lookup)
 
@@ -12,11 +12,11 @@ import Data.Map                         (Map, toList, fromList, lookup)
 import qualified Data.ByteString.Lazy as BL
 
 
-type Hash    = Map BL.ByteString Bencode
+type Dict    = Map BL.ByteString Bencode
 data Bencode = BString BL.ByteString
              | BInt Integer
              | BList [Bencode]
-             | BDict Hash
+             | BDict Dict
              deriving (Show, Eq, Ord)
 
 -- note: using fromIntegral :: Int -> Word8 computes an answer modulo 256
@@ -61,17 +61,17 @@ parseList  = do
 parseDictionary :: Parser Bencode
 parseDictionary  = do
   _  <- string "d"
-  xs <- many' parseHash
+  xs <- many' parseDict
   _  <- string "e"
   return $ BDict $ fromList xs
 
-parseHash :: Parser (BL.ByteString, Bencode)
-parseHash  = do
+parseDict :: Parser (BL.ByteString, Bencode)
+parseDict  = do
   BString key <- parseString
   val         <- parseBencode
   return (key, val)
 
 
 -- helper functions
-getValue :: BL.ByteString -> Hash -> Maybe Bencode
+getValue :: BL.ByteString -> Dict -> Maybe Bencode
 getValue = lookup
