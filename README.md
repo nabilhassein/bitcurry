@@ -28,6 +28,9 @@ Synchronization is, however, necessary for the following:
 One master thread communicating with all of its children should be a simple
 and effective model.
 
+The idea is to have a queue of pieces; a thread tries to download a piece
+from the queue; the download is complete when the queue is empty.
+
 I've begun writing tests of the pure code. Greater coverage is needed, but a
 higher priority than testing pure code is to devise a good method to test
 networked communication.
@@ -72,21 +75,15 @@ you have the [Haskell Platform](http://www.haskell.org/platform/) installed.
 (It is necessary to use GHC 7.6 for this project; bitcurry uses some functions
 and language features that are new to this version.)
 
-Then bring up a shell and:
+Then just bring up a shell and:
 
     git clone git@github.com:nabilhassein/bitcurry.git
     cd bitcurry
-    cabal install hsenv
-    hsenv
+    cabal install --only-dependencies && cabal configure --enable-tests && cabal build
 
-Follow the above steps the FIRST time you begin working on the project.
+If all is right with the world, this will build the package.
 
-Then, EVERY time before you do work such as editing code, or
-(especially!) `cabal install`-ing dependencies:
-
-    source .hsenv/bin/activate
-
-This will give the project a virtual environment, avoiding dependency hell.
+*PLEASE let me know if this does not work for you.*
 
 ## directory annoyances
 
@@ -99,35 +96,6 @@ due to the mundane details of ghc's (and ghci's) resolution of `import`s.
 
 I've tried to hack around this, not only in `bitcurry.cabal` but also in the
 project's local `.ghci`, to apparent success. Let me know if you have trouble.
-
-## building and testing
-
-    . .hsenv/bin/activate
-    cabal configure --enable-tests && cabal build && cabal test
-
-If all is right with the world, this will build and test the package.
-
-*PLEASE let me know if this does not work for you.*
-
-## workflow
-
-If you use Emacs, make sure you get [virthualenv.el](https://github.com/Paczesiowa/virthualenv/blob/master/virthualenv.el),
-put it on your `load-path` and `require` it in your `init.el`, and then
-
-    M-x virthualenv-activate
-
-every time you start working.
-(Or do the equivalent in your environment of choice; for example,
-if you're on the command-line, then repeat the incantation above, i.e.
-
-    source .virthualenv/bin/activate
-
-If you forget, your inferior ghci (or whatever) will be unable to find packages
-that were `cabal install`-ed in the local virtual environment,
-as ghci will instead search the normal environment.
-
-If you have any questions -- or advice! -- about good practices and/or
-setting up a productive development environment, please share!
 
 ## contributing
 

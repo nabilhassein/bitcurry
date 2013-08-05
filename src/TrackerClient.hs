@@ -3,8 +3,11 @@
 module TrackerClient (getTorrentInfo, makeTrackerRequest, info_hash,
                       bytestring_info_hash, peer_id) where
 
-import Bencode                    (Bencode(BString, BInt, BList, BDict), Dict,
-                                   antiParse, parseBencode, getValue)
+import Bencode
+import BTError
+
+import Control.Monad.Trans.Class  (lift)
+import Control.Monad.Trans.Either (EitherT, hoistEither, left)
 import Data.Attoparsec.Lazy       (Result(Done), parse)
 import Data.ByteString.Lazy.Char8 (pack, unpack) -- instance IsString ByteString
 import Data.Digest.Pure.SHA       (sha1, showDigest, bytestringDigest)
@@ -14,62 +17,53 @@ import System.Random              (StdGen, randomRs)
 import qualified Data.ByteString.Lazy as BL
 
 
-getTorrentInfo :: FilePath -> IO (Maybe Dict)
+getTorrentInfo :: FilePath -> EitherT BTError IO Dict
 getTorrentInfo    filename  = do
-  contents <- BL.readFile filename
+  contents <- lift $ BL.readFile filename
   case parse parseBencode contents of
-    Done "" (BDict d) -> case (getValue "info" d, getValue "announce" d) of
-      (Just _, Just _) -> return $ Just d
-      _                -> return Nothing
-    _ -> return Nothing
+    Done "" (BDict d) -> do
+      _ <- hoistEither $ getValue "info" d
+      _ <- hoistEither $ getValue "announce" d
+      return d
+    _ -> left NoParse
 
-makeTrackerRequest :: StdGen -> Dict -> IO (Maybe Dict)
-makeTrackerRequest    seed      dict  = case constructURL seed dict of
-  Nothing  -> return Nothing
-  Just url -> do
-    response <- getResponseBody =<< simpleHTTP (getRequest url)
-    case parse parseBencode $ pack response of
-      Done "" (BDict d) -> case getValue "failure reason" dict of
-        Nothing -> return $ Just d
-        Just _  -> return Nothing
-      _                 -> return Nothing
+makeTrackerRequest :: StdGen -> Dict -> EitherT BTError IO Dict
+makeTrackerRequest    seed      dict  = do
+  url      <- constructURL seed dict
+  response <- lift (getResponseBody =<< simpleHTTP (getRequest url))
+  case parse parseBencode $ pack response of
+    Done "" (BDict d) -> hoistEither (checkSuccess d) >> return d
+    _                 -> left NoParse
 
 -- TODO: handle info_hash in standard manner instead of as a hacky special case
 -- this is so currently because urlEncodeVars strips the %s we encoded above
-constructURL :: StdGen -> Dict -> Maybe String
-constructURL    seed      dict =
-  case (getValue "announce" dict, info_hash dict) of
-    (Just url, Just (key, val)) ->
-      let strip    = drop 1 . dropWhile (/= ':') -- for bencoded strings
-          baseURL  = strip . unpack . antiParse $ url
-          infoHash = key ++ "=" ++ val
-      in  Just $ baseURL ++ "?" ++ infoHash ++ "&" ++
-          urlEncodeVars [ peer_id seed
-                        , port
-                        , uploaded
-                        , downloaded
-                        , left
-                        , compact
-                        , event
-                        ]
-    _                     -> Nothing
+constructURL :: StdGen -> Dict -> EitherT BTError IO String
+constructURL    seed      dict = do
+  url        <- hoistEither $ getValue "announce" dict
+  (key, val) <- hoistEither $ info_hash dict
+  let strip    = drop 1 . dropWhile (/= ':') -- for bencoded strings
+      baseURL  = strip . unpack . antiParse $ url
+      infoHash = key ++ "=" ++ val
+  return $ baseURL ++ "?" ++ infoHash ++ "&" ++
+    urlEncodeVars [peer_id seed, port, uploaded, downloaded, left', compact, event]
 
 -- % hackery is due to the requirements of the tracker server
-info_hash :: Dict -> Maybe (String, String)
-info_hash    dict  = getValue "info" dict >>= \ d ->
+info_hash :: Dict -> Either BTError (String, String)
+info_hash    dict  = do
+  d <- getValue "info" dict
   let hash :: String
       hash  = showDigest . sha1 $ antiParse d
       encodePercents :: String -> String
       encodePercents    []        = ""
-      encodePercents    [_]       = fail "fatal error: SHA1 hashes are 20 bytes"
+      encodePercents    [_]       = error "SHA1 hashes are 20 bytes"
       encodePercents    (a:b:str) = '%' : a : b : encodePercents str
-  in Just ("info_hash", encodePercents hash)
+  Right ("info_hash", encodePercents hash)
 
 -- send to the peers over TCP, hence ByteString rather than String
 -- not used in this module but it logically belongs here
-bytestring_info_hash :: Dict -> Maybe BL.ByteString
+bytestring_info_hash :: Dict -> Either BTError BL.ByteString
 bytestring_info_hash    dict  = getValue "info" dict >>=
-                                Just . bytestringDigest . sha1 . antiParse
+                                Right . bytestringDigest . sha1 . antiParse
 
 -- from the specification linked above: "[the peer id] must at least be unique
 -- for your local machine, thus should probably incorporate things like
@@ -90,8 +84,8 @@ uploaded  = ("uploaded", "0")
 downloaded :: (String      , String)
 downloaded  = ("downloaded", "0")
 
-left :: (String, String)
-left  = ("left", "0")
+left' :: (String, String)
+left'  = ("left", "0")
 
 -- TODO: research implications of compact (and no_peer_id)
 compact :: (String   , String)

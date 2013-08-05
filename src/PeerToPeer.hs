@@ -2,10 +2,12 @@
 
 module PeerToPeer where
 
-import Bencode                    (Bencode(BString, BInt, BList, BDict), Dict,
-                                   getValue)
-import TrackerClient              (getTorrentInfo, makeTrackerRequest,
-                                   bytestring_info_hash, info_hash, peer_id)
+import BTError
+import Bencode
+import TrackerClient
+
+import Control.Monad.Trans.Class  (lift)
+import Control.Monad.Trans.Either (EitherT, runEitherT)
 import Data.ByteString.Lazy.Char8 (pack, unpack) -- instance IsString ByteString
 import Data.List.Split            (chunksOf)
 import Data.Monoid                ((<>))
@@ -34,12 +36,15 @@ data Message = KeepAlive
 -- The message ID is a single decimal byte.
 -- The payload is message dependent. 
 
+-- ?: is this encoding the bytes as decimals? is that what the spec even needs?
+-- TODO: settle this question and write a test
 -- note: using fromIntegral :: Int -> Word8 computes an answer modulo 256
+-- this is intended behavior
 lengthPrefix :: Int -> BL.ByteString
 lengthPrefix         = BL.pack . padAndReverse . bytes
   where bytes :: Int -> [Word8] -- little endian
         bytes    0    = []
-        bytes    n    = (fromIntegral (n `mod` (2^8))) : bytes (n `div` (2^8))
+        bytes    n    = fromIntegral n : bytes (n `div` 2^8)
         padAndReverse   :: [Word8] ->         [Word8]
         padAndReverse      []               = [0 , 0 , 0 , 0 ]
         padAndReverse      [b1]             = [0 , 0 , 0 , b1]
@@ -80,27 +85,25 @@ downloadFromPeer    host        port      handshakeMsg   = do
 -- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
 -- All in network (big endian) notation"
 --getPeers :: Dict -> Maybe [(HostName, PortID)]
-getPeers    dict  = case getValue "peers" dict of
-  Just (BString binaryPeers) ->
-    let addrs = chunksOf 6 $ unpack binaryPeers
-        ips   = map (take 4) addrs
-        ports = map (drop 4) addrs
-    in  undefined
-  Just (BList   hashedPeers) -> undefined
-  _                          -> undefined
+-- getPeers    dict  = case getValue "peers" dict of
+--   Just (BString binaryPeers) ->
+--     let addrs = chunksOf 6 $ unpack binaryPeers
+--         ips   = map (take 4) addrs
+--         ports = map (drop 4) addrs
+--     in  mapM_ putStrLn ips
+--   Just (BList   hashedPeers) -> putStrLn "hashed peers"
+--   _                          -> putStrLn "foo"
 
 -- the first message sent by a client to a peer
-handshake :: StdGen -> Dict -> Maybe BL.ByteString
+handshake :: StdGen -> Dict -> Either BTError BL.ByteString
 handshake    seed      dict  = bytestring_info_hash dict >>= \ infoHash ->
-  Just $ foldr1 BL.append [pstrlen, pstr, reserved, infoHash, peerID]
+  Right $ foldr1 BL.append [pstrlen, pstr, reserved, infoHash, peerID]
   where pstrlen   = BL.singleton 19
         pstr      = "BitTorrent protocol"
         reserved  = "\0\0\0\0\0\0\0\0"
         peerID    = pack $ snd $ peer_id seed
 
 
-main :: IO ()
-main = undefined
 -- sketch of flow:
 -- Read torrent file.
 -- If necessary info is extracted, make GET request to tracker; otherwise abort.
@@ -110,3 +113,11 @@ main = undefined
 -- https://wiki.theory.org/BitTorrentSpecification#Peer_wire_protocol_.28TCP.29
 -- The master thread should keep track of any relevant state information for all
 -- child threads, as well as piecing together the downloaded file.
+flow :: FilePath -> EitherT BTError IO ()
+flow    filename  = do
+  dict     <- getTorrentInfo filename
+  response <- makeTrackerRequest globalSeed dict
+  lift $ print response
+
+main :: IO (Either BTError ())
+main = runEitherT $ flow "test/archlinux.torrent"
