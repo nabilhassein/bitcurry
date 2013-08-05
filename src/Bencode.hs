@@ -9,7 +9,7 @@ import BTError
 import Control.Applicative              ((<|>))
 import Data.Attoparsec                  (Parser, many', count, anyWord8, string)
 import Data.Attoparsec.ByteString.Char8 (decimal, signed)
-import Data.ByteString.Lazy.Char8       (unpack) -- instance IsString ByteString
+import Data.ByteString.Lazy.Char8       (pack, unpack) -- instance IsString ByteString
 import Data.Map                         (Map, toList, fromList, lookup)
 import Data.Monoid                      ((<>))
 import GHC.Word                         (Word8)
@@ -24,25 +24,16 @@ data Bencode = BString BL.ByteString
              deriving (Show, Eq, Ord)
 
 
--- This does not encode the bytes as decimals, as the spec requires.
--- TODO: fix this and write a test
--- note: using fromIntegral :: Int(eger) -> Word8 computes an answer modulo 256
--- this is intended behavior
-packInt :: Integral a => a -> BL.ByteString
-packInt                     = BL.pack . reverse . bytes
-  where bytes :: Integral a => a -> [Word8] -- little endian
-        bytes                  0  = []
-        bytes                  n  = fromIntegral n : bytes (n `div` 2^8)
-
 antiParse :: Bencode ->    BL.ByteString
-antiParse    (BString s) = packInt (BL.length s) <> ":" <> s
-antiParse    (BInt i)    = "i" <> packInt i <> "e"
+antiParse    (BString s) = (pack . show . BL.length) s <> ":" <> s
+antiParse    (BInt i)    = "i" <> (pack . show) i <> "e"
 antiParse    (BList l)   = "l" <> foldr (BL.append . antiParse) "e" l
 antiParse    (BDict d)   = "d" <> go (BDict d) <> "e"
-  where
-  go (BDict dict) = case toList dict of
-    []        -> ""
-    (k, v):xs -> antiParse (BString k) <> antiParse v <> go (BDict $ fromList xs)
+  where go (BDict dict) = case toList dict of
+          []        -> ""
+          (k, v):xs -> antiParse (BString k) <>
+                       antiParse v           <>
+                       go (BDict $ fromList xs)
 
 parseBencode :: Parser Bencode
 parseBencode  = parseString <|> parseInteger <|> parseList <|> parseDictionary
@@ -53,7 +44,6 @@ parseString  = do
   _   <- string ":"
   count n anyWord8 >>= return . BString . BL.pack
 
- -- TODO: reject leading zeroes, and accept only a leading - (not +)
 parseInteger :: Parser Bencode
 parseInteger  = do
   _ <- string "i"
@@ -74,12 +64,12 @@ parseList  = do
 parseDictionary :: Parser Bencode
 parseDictionary  = do
   _  <- string "d"
-  xs <- many' parseDict
+  xs <- many' parseKeyAndVal
   _  <- string "e"
   return $ BDict $ fromList xs
 
-parseDict :: Parser (BL.ByteString, Bencode)
-parseDict  = do
+parseKeyAndVal :: Parser (BL.ByteString, Bencode)
+parseKeyAndVal  = do
   BString key <- parseString
   val         <- parseBencode
   return (key, val)
