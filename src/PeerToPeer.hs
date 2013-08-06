@@ -10,6 +10,8 @@ import Control.Monad              (forM)
 import Control.Monad.Trans.Class  (lift)
 import Control.Monad.Trans.Either (EitherT, runEitherT, hoistEither)
 import Data.ByteString.Lazy.Char8 (pack, unpack) -- instance IsString ByteString
+import Data.Char                  (ord)
+import Data.List                  (intersperse)
 import Data.Monoid                ((<>))
 import GHC.Int                    (Int64)
 import GHC.Word                   (Word8)
@@ -102,16 +104,24 @@ getPeers    dict  = do
     BString binaryPeers ->
       let rawPeers    :: [BL.ByteString]
           rawPeers     = byteStringChunksOf 6 binaryPeers
+          getIP       :: BL.ByteString -> Either BTError HostName
+          getIP          bs             = case unpack bs of
+            -- if we have four bytes, turn them into a dotted IPv4 address
+            cs@[_, _, _, _] -> Right $ concat $ intersperse "." $
+                               map (show . ord) cs
+            _               -> Left NoParse
           bytesToPort :: BL.ByteString -> Either BTError PortID
           bytesToPort    bs             = case BL.unpack bs of
+            -- if we have two bytes, left shift b1 by 8 bits; concatenate b2
             [b1, b2] -> let i1, i2 :: Int
                             i1 = fromIntegral b1
                             i2 = fromIntegral b2
                         in  Right $ PortNumber $ fromIntegral $ i1*2^8 + i2
             _        -> Left NoParse
       in forM rawPeers $ \peer -> do
+        ip     <- getIP       $ BL.take 4 peer
         portID <- bytesToPort $ BL.drop 4 peer
-        return (unpack . BL.take 4 $ peer, portID)
+        return (ip, portID)
     _                   -> Left NoParse
     where
       byteStringChunksOf :: Int64 -> BL.ByteString -> [BL.ByteString]
@@ -148,6 +158,9 @@ flow    filename  = do
   msg      <- hoistEither $ handshake globalSeed dict
   lift $ print response
   lift $ print peers
+  replies <- lift $ forM (take 2 peers) $ \(host, port) -> do
+    downloadFromPeer host port msg
+  lift $ print replies
 
 main :: IO (Either BTError ())
 main = runEitherT $ flow "test/archlinux.torrent"
