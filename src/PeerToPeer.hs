@@ -49,9 +49,9 @@ lengthPrefix         = BL.pack . padAndReverse . bytes
         padAndReverse   :: [Word8] ->         [Word8]
         padAndReverse      []               = [0 , 0 , 0 , 0 ]
         padAndReverse      [b1]             = [0 , 0 , 0 , b1]
-        padAndReverse      [b1, b2]         = [0 , 0 , b2, b1]
-        padAndReverse      [b1, b2, b3]     = [0 , b3, b2, b1]
-        padAndReverse      [b1, b2, b3, b4] = [b4, b3, b2, b1]
+        padAndReverse      [b2, b1]         = [0 , 0 , b1, b2]
+        padAndReverse      [b3, b2, b1]     = [0 , b1, b2, b3]
+        padAndReverse      [b4, b3, b2, b1] = [b1, b2, b3, b4]
         padAndReverse      _ = error "length must be < 2^32 to fit in 4 bytes"
 
 encodeMessage :: Message ->      BL.ByteString
@@ -82,11 +82,20 @@ downloadFromPeer    host        port      handshakeMsg   = do
   BL.hPut handle handshakeMsg
   BL.hGet handle 68
 
+-- see the spec: peers can be dictionary model or binary model. excerpts:
+-- DICT: The value is a list of dictionaries, each with the following keys:
+--   peer id: self-selected, as described above for the tracker request (string)
+--   ip: IP address; IPv6 (hexed) or IPv4 (dotted quad) or DNS name (string)
+--   port: peer's port number (integer) 
+-- BINARY: Instead of using the dictionary model described above,
+--   the peers value may be a string consisting of multiples of 6 bytes.
+--   First 4 bytes are the IP address and last 2 bytes are the port number.
+--   All in network (big endian) notation. 
 getPeers :: Dict -> Either BTError [(HostName, PortID)]
 getPeers    dict  = do
   peers <- getValue "peers" dict
   case peers of
-    BList   hashedPeers -> forM hashedPeers $ \(BDict peer) -> do
+    BList hashedPeers -> forM hashedPeers $ \(BDict peer) -> do
       BString ip   <- getValue "ip" peer
       BInt    port <- getValue "port" peer
       return (unpack ip, PortNumber $ fromIntegral port)
@@ -95,17 +104,21 @@ getPeers    dict  = do
           rawPeers     = byteStringChunksOf 6 binaryPeers
           bytesToPort :: BL.ByteString -> Either BTError PortID
           bytesToPort    bs             = case BL.unpack bs of
-            [b1, b2] -> Right $ PortNumber $ fromIntegral $ b1*2^8 + b2
+            [b1, b2] -> let i1, i2 :: Int
+                            i1 = fromIntegral b1
+                            i2 = fromIntegral b2
+                        in  Right $ PortNumber $ fromIntegral $ i1*2^8 + i2
             _        -> Left NoParse
       in forM rawPeers $ \peer -> do
         portID <- bytesToPort $ BL.drop 4 peer
         return (unpack . BL.take 4 $ peer, portID)
     _                   -> Left NoParse
-    where byteStringChunksOf :: Int64 -> BL.ByteString -> [BL.ByteString]
-          byteStringChunksOf    n        str            =
-            if BL.null str
-            then []
-            else BL.take n str : byteStringChunksOf n (BL.drop n str)
+    where
+      byteStringChunksOf :: Int64 -> BL.ByteString -> [BL.ByteString]
+      byteStringChunksOf    n        str            =
+        if BL.null str
+        then []
+        else BL.take n str : byteStringChunksOf n (BL.drop n str)
 
 
 -- the first message sent by a client to a peer
@@ -132,6 +145,8 @@ flow    filename  = do
   dict     <- getTorrentInfo filename
   response <- makeTrackerRequest globalSeed dict
   peers    <- hoistEither $ getPeers response
+  msg      <- hoistEither $ handshake globalSeed dict
+  lift $ print response
   lift $ print peers
 
 main :: IO (Either BTError ())
