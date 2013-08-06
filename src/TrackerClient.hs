@@ -30,13 +30,12 @@ getTorrentInfo    filename  = do
 makeTrackerRequest :: StdGen -> Dict -> EitherT BTError IO Dict
 makeTrackerRequest    seed      dict  = do
   url      <- constructURL seed dict
-  response <- lift (getResponseBody =<< simpleHTTP (getRequest url))
+  response <- lift $ simpleHTTP (getRequest url) >>= getResponseBody
   case parse parseBencode $ pack response of
     Done "" (BDict d) -> hoistEither (checkSuccess d) >> return d
     _                 -> left NoParse
 
--- TODO: handle info_hash in standard manner instead of as a hacky special case
--- this is so currently because urlEncodeVars strips the %s we encoded above
+-- note: urlEncodeVars strips the %s we encode below, hence need for special case
 constructURL :: StdGen -> Dict -> EitherT BTError IO String
 constructURL    seed      dict = do
   url        <- hoistEither $ getValue "announce" dict
@@ -55,12 +54,11 @@ info_hash    dict  = do
       hash  = showDigest . sha1 $ antiParse d
       encodePercents :: String -> String
       encodePercents    []        = ""
-      encodePercents    [_]       = error "SHA1 hashes are 20 bytes"
+      encodePercents    [_]       = fail "SHA1 hashes are 20 bytes"
       encodePercents    (a:b:str) = '%' : a : b : encodePercents str
   Right ("info_hash", encodePercents hash)
 
--- send to the peers over TCP, hence ByteString rather than String
--- not used in this module but it logically belongs here
+-- send to the peers over TCP; hence ByteString rather than String
 bytestring_info_hash :: Dict -> Either BTError BL.ByteString
 bytestring_info_hash    dict  = getValue "info" dict >>=
                                 Right . bytestringDigest . sha1 . antiParse

@@ -6,11 +6,12 @@ import BTError
 import Bencode
 import TrackerClient
 
+import Control.Monad              (forM)
 import Control.Monad.Trans.Class  (lift)
-import Control.Monad.Trans.Either (EitherT, runEitherT)
+import Control.Monad.Trans.Either (EitherT, runEitherT, hoistEither)
 import Data.ByteString.Lazy.Char8 (pack, unpack) -- instance IsString ByteString
-import Data.List.Split            (chunksOf)
 import Data.Monoid                ((<>))
+import GHC.Int                    (Int64)
 import GHC.Word                   (Word8)
 import Network                    (HostName, PortID(..), connectTo)
 import System.Random              (StdGen, mkStdGen)
@@ -81,18 +82,31 @@ downloadFromPeer    host        port      handshakeMsg   = do
   BL.hPut handle handshakeMsg
   BL.hGet handle 68
 
--- from the spec: "the peers value may be a string consisting of multiples of 6
--- bytes. First 4 bytes are the IP address and last 2 bytes are the port number.
--- All in network (big endian) notation"
---getPeers :: Dict -> Maybe [(HostName, PortID)]
--- getPeers    dict  = case getValue "peers" dict of
---   Just (BString binaryPeers) ->
---     let addrs = chunksOf 6 $ unpack binaryPeers
---         ips   = map (take 4) addrs
---         ports = map (drop 4) addrs
---     in  mapM_ putStrLn ips
---   Just (BList   hashedPeers) -> putStrLn "hashed peers"
---   _                          -> putStrLn "foo"
+getPeers :: Dict -> Either BTError [(HostName, PortID)]
+getPeers    dict  = do
+  peers <- getValue "peers" dict
+  case peers of
+    BList   hashedPeers -> forM hashedPeers $ \(BDict peer) -> do
+      BString ip   <- getValue "ip" peer
+      BInt    port <- getValue "port" peer
+      return (unpack ip, PortNumber $ fromIntegral port)
+    BString binaryPeers ->
+      let rawPeers    :: [BL.ByteString]
+          rawPeers     = byteStringChunksOf 6 binaryPeers
+          bytesToPort :: BL.ByteString -> Either BTError PortID
+          bytesToPort    bs             = case BL.unpack bs of
+            [b1, b2] -> Right $ PortNumber $ fromIntegral $ b1*2^8 + b2
+            _        -> Left NoParse
+      in forM rawPeers $ \peer -> do
+        portID <- bytesToPort $ BL.drop 4 peer
+        return (unpack . BL.take 4 $ peer, portID)
+    _                   -> Left NoParse
+    where byteStringChunksOf :: Int64 -> BL.ByteString -> [BL.ByteString]
+          byteStringChunksOf    n        str            =
+            if BL.null str
+            then []
+            else BL.take n str : byteStringChunksOf n (BL.drop n str)
+
 
 -- the first message sent by a client to a peer
 handshake :: StdGen -> Dict -> Either BTError BL.ByteString
@@ -117,7 +131,8 @@ flow :: FilePath -> EitherT BTError IO ()
 flow    filename  = do
   dict     <- getTorrentInfo filename
   response <- makeTrackerRequest globalSeed dict
-  lift $ print response
+  peers    <- hoistEither $ getPeers response
+  lift $ print peers
 
 main :: IO (Either BTError ())
 main = runEitherT $ flow "test/archlinux.torrent"

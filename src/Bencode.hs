@@ -12,7 +12,6 @@ import Data.Attoparsec.ByteString.Char8 (decimal, signed)
 import Data.ByteString.Lazy.Char8       (pack, unpack) -- instance IsString ByteString
 import Data.Map                         (Map, toList, fromList, lookup)
 import Data.Monoid                      ((<>))
-import GHC.Word                         (Word8)
 import qualified Data.ByteString.Lazy as BL
 
 
@@ -58,7 +57,7 @@ parseList  = do
   _  <- string "e"
   return $ BList xs
 
--- TODO: from the spec: Keys must be strings and appear in sorted order
+-- TODO: write test; from spec: Keys must be strings and appear in sorted order
 -- (sorted as raw strings, not alphanumerics). The strings should be compared
 -- using a binary comparison, not a culture-specific "natural" comparison.
 parseDictionary :: Parser Bencode
